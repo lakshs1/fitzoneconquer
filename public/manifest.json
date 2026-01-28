@@ -1,0 +1,16 @@
+{
+  "name": "FitZone",
+  "short_name": "FitZone",
+  "description": "Turn your city into a fitness battleground",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0f14",
+  "theme_color": "#00d4ff",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64",
+      "type": "image/x-icon"
+    }
+  ]
+}
