@@ -8,74 +8,75 @@
 
 @layer base {
   :root {
-    /* Dark gaming palette */
-    --background: 220 20% 8%;
-    --foreground: 210 40% 98%;
+    /* Gray/Black background palette */
+    --background: 0 0% 8%;
+    --foreground: 0 0% 95%;
 
-    --card: 220 18% 12%;
-    --card-foreground: 210 40% 98%;
+    --card: 0 0% 12%;
+    --card-foreground: 0 0% 95%;
 
-    --popover: 220 18% 12%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 0 0% 12%;
+    --popover-foreground: 0 0% 95%;
 
-    /* Electric cyan primary */
-    --primary: 185 100% 50%;
-    --primary-foreground: 220 20% 8%;
+    /* Yellow primary for icons and card edges */
+    --primary: 48 100% 50%;
+    --primary-foreground: 0 0% 8%;
 
     /* Darker secondary */
-    --secondary: 220 15% 18%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 0 0% 18%;
+    --secondary-foreground: 0 0% 95%;
 
-    --muted: 220 15% 20%;
-    --muted-foreground: 215 20% 55%;
+    --muted: 0 0% 20%;
+    --muted-foreground: 0 0% 55%;
 
-    /* Accent - neon purple */
-    --accent: 280 100% 65%;
-    --accent-foreground: 210 40% 98%;
+    /* Light red accent for highlights */
+    --accent: 0 75% 60%;
+    --accent-foreground: 0 0% 95%;
 
-    /* Gaming colors */
-    --xp-gold: 45 100% 55%;
-    --xp-gold-foreground: 220 20% 8%;
+    /* Gaming colors - yellow focused */
+    --xp-gold: 48 100% 50%;
+    --xp-gold-foreground: 0 0% 8%;
     
-    --zone-capture: 0 85% 55%;
-    --zone-capture-foreground: 210 40% 98%;
+    --zone-capture: 0 75% 60%;
+    --zone-capture-foreground: 0 0% 95%;
     
-    --zone-owned: 150 80% 45%;
-    --zone-owned-foreground: 220 20% 8%;
+    --zone-owned: 48 100% 50%;
+    --zone-owned-foreground: 0 0% 8%;
     
-    --energy: 185 100% 50%;
-    --energy-glow: 185 100% 60%;
+    --energy: 48 100% 50%;
+    --energy-glow: 48 100% 60%;
 
-    --destructive: 0 85% 55%;
-    --destructive-foreground: 210 40% 98%;
+    /* Light red for destructive/highlights */
+    --destructive: 0 75% 60%;
+    --destructive-foreground: 0 0% 95%;
 
-    --border: 220 15% 22%;
-    --input: 220 15% 18%;
-    --ring: 185 100% 50%;
+    --border: 48 80% 40%;
+    --input: 0 0% 18%;
+    --ring: 48 100% 50%;
 
     --radius: 0.75rem;
 
     /* Sidebar */
-    --sidebar-background: 220 18% 10%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 185 100% 50%;
-    --sidebar-primary-foreground: 220 20% 8%;
-    --sidebar-accent: 220 15% 18%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 220 15% 22%;
-    --sidebar-ring: 185 100% 50%;
+    --sidebar-background: 0 0% 10%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 48 100% 50%;
+    --sidebar-primary-foreground: 0 0% 8%;
+    --sidebar-accent: 0 0% 18%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 48 80% 40%;
+    --sidebar-ring: 48 100% 50%;
 
-    /* Custom gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(185 100% 50%), hsl(200 100% 60%));
-    --gradient-xp: linear-gradient(135deg, hsl(45 100% 55%), hsl(35 100% 50%));
-    --gradient-danger: linear-gradient(135deg, hsl(0 85% 55%), hsl(15 90% 50%));
-    --gradient-success: linear-gradient(135deg, hsl(150 80% 45%), hsl(170 70% 50%));
-    --gradient-accent: linear-gradient(135deg, hsl(280 100% 65%), hsl(300 90% 60%));
-    --gradient-dark: linear-gradient(180deg, hsl(220 20% 8%), hsl(220 18% 5%));
+    /* Custom gradients - yellow and red focused */
+    --gradient-primary: linear-gradient(135deg, hsl(48 100% 50%), hsl(45 100% 45%));
+    --gradient-xp: linear-gradient(135deg, hsl(48 100% 50%), hsl(40 100% 45%));
+    --gradient-danger: linear-gradient(135deg, hsl(0 75% 60%), hsl(10 70% 55%));
+    --gradient-success: linear-gradient(135deg, hsl(48 100% 50%), hsl(55 90% 45%));
+    --gradient-accent: linear-gradient(135deg, hsl(0 75% 60%), hsl(350 70% 55%));
+    --gradient-dark: linear-gradient(180deg, hsl(0 0% 8%), hsl(0 0% 5%));
 
     /* Shadows */
-    --shadow-neon: 0 0 20px hsl(185 100% 50% / 0.3), 0 0 40px hsl(185 100% 50% / 0.1);
-    --shadow-gold: 0 0 20px hsl(45 100% 55% / 0.3), 0 0 40px hsl(45 100% 55% / 0.1);
+    --shadow-neon: 0 0 20px hsl(48 100% 50% / 0.3), 0 0 40px hsl(48 100% 50% / 0.1);
+    --shadow-gold: 0 0 20px hsl(48 100% 50% / 0.3), 0 0 40px hsl(48 100% 50% / 0.1);
     --shadow-card: 0 4px 20px hsl(0 0% 0% / 0.3);
   }
 
@@ -100,13 +101,13 @@
 }
 
 @layer components {
-  /* Neon glow text */
+  /* Yellow glow text */
   .text-glow {
-    text-shadow: 0 0 10px hsl(var(--primary) / 0.5), 0 0 20px hsl(var(--primary) / 0.3);
+    text-shadow: 0 0 10px hsl(48 100% 50% / 0.5), 0 0 20px hsl(48 100% 50% / 0.3);
   }
 
   .text-glow-gold {
-    text-shadow: 0 0 10px hsl(var(--xp-gold) / 0.5), 0 0 20px hsl(var(--xp-gold) / 0.3);
+    text-shadow: 0 0 10px hsl(48 100% 50% / 0.5), 0 0 20px hsl(48 100% 50% / 0.3);
   }
 
   /* Animated gradient border */
@@ -133,16 +134,16 @@
 
   @keyframes pulse-zone {
     0%, 100% {
-      box-shadow: 0 0 0 0 hsl(var(--primary) / 0.4);
+      box-shadow: 0 0 0 0 hsl(48 100% 50% / 0.4);
     }
     50% {
-      box-shadow: 0 0 0 15px hsl(var(--primary) / 0);
+      box-shadow: 0 0 0 15px hsl(48 100% 50% / 0);
     }
   }
 
   /* XP bar glow */
   .xp-bar-glow {
-    box-shadow: 0 0 10px hsl(var(--xp-gold) / 0.5), inset 0 0 10px hsl(var(--xp-gold) / 0.2);
+    box-shadow: 0 0 10px hsl(48 100% 50% / 0.5), inset 0 0 10px hsl(48 100% 50% / 0.2);
   }
 
   /* Card hover effect */
@@ -152,7 +153,7 @@
 
   .card-hover:hover {
     transform: translateY(-4px);
-    box-shadow: var(--shadow-neon);
+    box-shadow: 0 0 20px hsl(48 100% 50% / 0.3);
   }
 
   /* Map zone marker */
@@ -171,10 +172,10 @@
     }
   }
 
-  /* Gaming stat card */
+  /* Gaming stat card - yellow border */
   .stat-card {
-    @apply relative overflow-hidden rounded-xl bg-card p-4 border border-border;
-    background: linear-gradient(135deg, hsl(var(--card)) 0%, hsl(220 18% 10%) 100%);
+    @apply relative overflow-hidden rounded-xl bg-card p-4 border-2 border-primary;
+    background: linear-gradient(135deg, hsl(0 0% 12%) 0%, hsl(0 0% 8%) 100%);
   }
 
   .stat-card::after {
@@ -183,9 +184,9 @@
     top: 0;
     left: 0;
     right: 0;
-    height: 1px;
+    height: 2px;
     background: var(--gradient-primary);
-    opacity: 0.5;
+    opacity: 0.8;
   }
 
   /* Level badge */
@@ -219,7 +220,7 @@
   .nav-active::after {
     content: '';
     @apply absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary;
-    box-shadow: 0 0 8px hsl(var(--primary));
+    box-shadow: 0 0 8px hsl(48 100% 50%);
   }
 
   /* Floating action button */
@@ -230,20 +231,20 @@
     z-index: 50;
   }
 
-  /* Zone ownership colors */
+  /* Zone ownership colors - yellow owned, light red enemy */
   .zone-owned {
-    background: hsl(var(--zone-owned) / 0.3);
-    border: 2px solid hsl(var(--zone-owned));
+    background: hsl(48 100% 50% / 0.2);
+    border: 2px solid hsl(48 100% 50%);
   }
 
   .zone-enemy {
-    background: hsl(var(--zone-capture) / 0.3);
-    border: 2px solid hsl(var(--zone-capture));
+    background: hsl(0 75% 60% / 0.2);
+    border: 2px solid hsl(0 75% 60%);
   }
 
   .zone-neutral {
-    background: hsl(var(--muted) / 0.3);
-    border: 2px solid hsl(var(--muted-foreground) / 0.5);
+    background: hsl(0 0% 30% / 0.3);
+    border: 2px solid hsl(0 0% 40%);
   }
 }
 
