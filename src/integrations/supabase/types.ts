@@ -14,7 +14,288 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      activities: {
+        Row: {
+          activity_type: string
+          calories: number | null
+          created_at: string
+          distance: number | null
+          duration: number | null
+          end_coordinates: Json | null
+          ended_at: string | null
+          id: string
+          loops_completed: number | null
+          path: Json | null
+          start_coordinates: Json | null
+          started_at: string
+          user_id: string
+          xp_earned: number | null
+          zone_created_id: string | null
+        }
+        Insert: {
+          activity_type: string
+          calories?: number | null
+          created_at?: string
+          distance?: number | null
+          duration?: number | null
+          end_coordinates?: Json | null
+          ended_at?: string | null
+          id?: string
+          loops_completed?: number | null
+          path?: Json | null
+          start_coordinates?: Json | null
+          started_at?: string
+          user_id: string
+          xp_earned?: number | null
+          zone_created_id?: string | null
+        }
+        Update: {
+          activity_type?: string
+          calories?: number | null
+          created_at?: string
+          distance?: number | null
+          duration?: number | null
+          end_coordinates?: Json | null
+          ended_at?: string | null
+          id?: string
+          loops_completed?: number | null
+          path?: Json | null
+          start_coordinates?: Json | null
+          started_at?: string
+          user_id?: string
+          xp_earned?: number | null
+          zone_created_id?: string | null
+        }
+        Relationships: []
+      }
+      ai_coach_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          age: number | null
+          avatar_url: string | null
+          created_at: string
+          email: string | null
+          fitness_goals: string[] | null
+          fitness_level: string | null
+          gender: string | null
+          id: string
+          menstrual_tracking: boolean | null
+          name: string
+          onboarded: boolean | null
+          sleep_time: string | null
+          updated_at: string
+          user_id: string
+          wake_time: string | null
+          work_end: string | null
+          work_start: string | null
+        }
+        Insert: {
+          age?: number | null
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          fitness_goals?: string[] | null
+          fitness_level?: string | null
+          gender?: string | null
+          id?: string
+          menstrual_tracking?: boolean | null
+          name: string
+          onboarded?: boolean | null
+          sleep_time?: string | null
+          updated_at?: string
+          user_id: string
+          wake_time?: string | null
+          work_end?: string | null
+          work_start?: string | null
+        }
+        Update: {
+          age?: number | null
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          fitness_goals?: string[] | null
+          fitness_level?: string | null
+          gender?: string | null
+          id?: string
+          menstrual_tracking?: boolean | null
+          name?: string
+          onboarded?: boolean | null
+          sleep_time?: string | null
+          updated_at?: string
+          user_id?: string
+          wake_time?: string | null
+          work_end?: string | null
+          work_start?: string | null
+        }
+        Relationships: []
+      }
+      user_stats: {
+        Row: {
+          created_at: string
+          id: string
+          last_activity_date: string | null
+          level: number | null
+          streak: number | null
+          total_activities: number | null
+          total_calories: number | null
+          total_distance: number | null
+          updated_at: string
+          user_id: string
+          xp: number | null
+          zones_captured: number | null
+          zones_lost: number | null
+          zones_owned: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_activity_date?: string | null
+          level?: number | null
+          streak?: number | null
+          total_activities?: number | null
+          total_calories?: number | null
+          total_distance?: number | null
+          updated_at?: string
+          user_id: string
+          xp?: number | null
+          zones_captured?: number | null
+          zones_lost?: number | null
+          zones_owned?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_activity_date?: string | null
+          level?: number | null
+          streak?: number | null
+          total_activities?: number | null
+          total_calories?: number | null
+          total_distance?: number | null
+          updated_at?: string
+          user_id?: string
+          xp?: number | null
+          zones_captured?: number | null
+          zones_lost?: number | null
+          zones_owned?: number | null
+        }
+        Relationships: []
+      }
+      zone_captures: {
+        Row: {
+          activity_id: string | null
+          challenger_id: string
+          created_at: string
+          duration_minutes: number
+          id: string
+          previous_owner_id: string | null
+          successful: boolean | null
+          zone_id: string
+        }
+        Insert: {
+          activity_id?: string | null
+          challenger_id: string
+          created_at?: string
+          duration_minutes: number
+          id?: string
+          previous_owner_id?: string | null
+          successful?: boolean | null
+          zone_id: string
+        }
+        Update: {
+          activity_id?: string | null
+          challenger_id?: string
+          created_at?: string
+          duration_minutes?: number
+          id?: string
+          previous_owner_id?: string | null
+          successful?: boolean | null
+          zone_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zone_captures_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zone_captures_zone_id_fkey"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "zones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      zones: {
+        Row: {
+          captured_at: string | null
+          center: Json
+          coordinates: Json
+          created_at: string
+          defense_challenge_type: string | null
+          defense_target_score: number | null
+          id: string
+          level: number | null
+          name: string
+          owner_id: string | null
+          owner_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          captured_at?: string | null
+          center: Json
+          coordinates?: Json
+          created_at?: string
+          defense_challenge_type?: string | null
+          defense_target_score?: number | null
+          id?: string
+          level?: number | null
+          name: string
+          owner_id?: string | null
+          owner_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          captured_at?: string | null
+          center?: Json
+          coordinates?: Json
+          created_at?: string
+          defense_challenge_type?: string | null
+          defense_target_score?: number | null
+          id?: string
+          level?: number | null
+          name?: string
+          owner_id?: string | null
+          owner_name?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
