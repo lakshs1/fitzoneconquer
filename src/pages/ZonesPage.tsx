@@ -1,16 +1,35 @@
 import { Trophy, Shield, Swords, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { useAppStore } from '@/store/appStore';
-import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
+import { useUserStats, useZones, getDefaultStats } from '@/hooks/useUserData';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useNavigate } from 'react-router-dom';
 
 export default function ZonesPage() {
-  const { zones, user, stats, captureZone } = useAppStore();
+  const { user } = useAuth();
+  const { stats: userStats, loading: statsLoading } = useUserStats();
+  const { myZones, enemyZones, loading: zonesLoading } = useZones();
   const navigate = useNavigate();
+  
+  const stats = userStats || getDefaultStats();
+  const loading = statsLoading || zonesLoading;
 
-  const myZones = zones.filter(z => z.ownerName === 'You' || z.ownerId === user?.id);
-  const enemyZones = zones.filter(z => z.ownerName !== 'You' && z.ownerId !== user?.id);
+  if (loading) {
+    return (
+      <AppLayout>
+        <div className="p-4 space-y-6">
+          <Skeleton className="h-10 w-48" />
+          <div className="grid grid-cols-3 gap-3">
+            <Skeleton className="h-24" />
+            <Skeleton className="h-24" />
+            <Skeleton className="h-24" />
+          </div>
+          <Skeleton className="h-40 w-full" />
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
@@ -23,18 +42,18 @@ export default function ZonesPage() {
         {/* Stats Summary */}
         <div className="grid grid-cols-3 gap-3">
           <div className="stat-card text-center">
-            <Trophy className="w-5 h-5 text-xp mx-auto mb-2" />
-            <p className="text-xl font-display font-bold">{stats.zonesOwned}</p>
+            <Trophy className="w-5 h-5 text-primary mx-auto mb-2" />
+            <p className="text-xl font-display font-bold">{stats.zones_owned || 0}</p>
             <p className="text-xs text-muted-foreground">Owned</p>
           </div>
           <div className="stat-card text-center">
-            <Swords className="w-5 h-5 text-zone-capture mx-auto mb-2" />
-            <p className="text-xl font-display font-bold">{stats.zonesCaptured}</p>
+            <Swords className="w-5 h-5 text-destructive mx-auto mb-2" />
+            <p className="text-xl font-display font-bold">{stats.zones_captured || 0}</p>
             <p className="text-xs text-muted-foreground">Captured</p>
           </div>
           <div className="stat-card text-center">
             <Shield className="w-5 h-5 text-primary mx-auto mb-2" />
-            <p className="text-xl font-display font-bold">{stats.zonesLost}</p>
+            <p className="text-xl font-display font-bold">{stats.zones_lost || 0}</p>
             <p className="text-xs text-muted-foreground">Lost</p>
           </div>
         </div>
@@ -42,7 +61,7 @@ export default function ZonesPage() {
         {/* Your Zones */}
         <section>
           <h2 className="font-display text-lg font-semibold mb-3 flex items-center gap-2">
-            <Shield className="w-5 h-5 text-zone-owned" />
+            <Shield className="w-5 h-5 text-primary" />
             Your Zones ({myZones.length})
           </h2>
           
@@ -59,16 +78,16 @@ export default function ZonesPage() {
               {myZones.map(zone => (
                 <div key={zone.id} className="stat-card card-hover">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-zone-owned/20 flex items-center justify-center shrink-0">
-                      <Shield className="w-6 h-6 text-zone-owned" />
+                    <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center shrink-0">
+                      <Shield className="w-6 h-6 text-primary" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold truncate">{zone.name}</p>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
-                        <span className="level-badge text-xs py-0.5 px-2">LVL {zone.level}</span>
-                        {zone.defenseChallenge && (
+                        <span className="level-badge text-xs py-0.5 px-2">LVL {zone.level || 1}</span>
+                        {zone.defense_challenge_type && (
                           <span className="text-primary">
-                            Defense: {zone.defenseChallenge.targetScore} {zone.defenseChallenge.type}
+                            Defense: {zone.defense_target_score} {zone.defense_challenge_type}
                           </span>
                         )}
                       </div>
@@ -84,36 +103,37 @@ export default function ZonesPage() {
         {/* Nearby Enemy Zones */}
         <section>
           <h2 className="font-display text-lg font-semibold mb-3 flex items-center gap-2">
-            <Swords className="w-5 h-5 text-zone-capture" />
+            <Swords className="w-5 h-5 text-destructive" />
             Nearby Zones ({enemyZones.length})
           </h2>
           
           {enemyZones.length === 0 ? (
             <div className="stat-card text-center py-8">
               <p className="text-muted-foreground">No zones to capture nearby</p>
+              <p className="text-sm text-muted-foreground mt-1">Explore the map to find zones!</p>
             </div>
           ) : (
             <div className="space-y-3">
               {enemyZones.map(zone => (
-                <div key={zone.id} className="stat-card border-zone-capture/30">
+                <div key={zone.id} className="stat-card border-destructive/30">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-zone-capture/20 flex items-center justify-center shrink-0">
-                      <Swords className="w-6 h-6 text-zone-capture" />
+                    <div className="w-12 h-12 rounded-xl bg-destructive/20 flex items-center justify-center shrink-0">
+                      <Swords className="w-6 h-6 text-destructive" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold truncate">{zone.name}</p>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
                         <span>Owned by</span>
-                        <span className="text-zone-capture font-semibold">{zone.ownerName}</span>
-                        <span className="level-badge text-xs py-0.5 px-2">LVL {zone.level}</span>
+                        <span className="text-destructive font-semibold">{zone.owner_name || 'Unknown'}</span>
+                        <span className="level-badge text-xs py-0.5 px-2">LVL {zone.level || 1}</span>
                       </div>
                     </div>
                     <Button 
                       variant="danger" 
                       size="sm"
-                      onClick={() => captureZone(zone.id)}
+                      onClick={() => navigate('/activity', { state: { challengeZoneId: zone.id } })}
                     >
-                      Capture
+                      Challenge
                     </Button>
                   </div>
                 </div>

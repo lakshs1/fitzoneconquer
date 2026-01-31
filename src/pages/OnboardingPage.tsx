@@ -76,7 +76,7 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col p-6">
+    <div className="min-h-screen bg-background flex flex-col p-6 app-container">
       {/* Progress Bar */}
       <div className="mb-8">
         <div className="flex justify-between text-xs text-muted-foreground mb-2">

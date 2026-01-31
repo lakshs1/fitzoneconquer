@@ -1,8 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapPin, Trophy, Zap, ChevronRight, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useAppStore } from '@/store/appStore';
 import { cn } from '@/lib/utils';
 
 const features = [
@@ -25,38 +24,24 @@ const features = [
 
 export default function LandingPage() {
   const navigate = useNavigate();
-  const { login } = useAppStore();
   const [currentSlide, setCurrentSlide] = useState(0);
 
-  const handleGetStarted = () => {
-    // Demo login - in production this would go to auth
-    login({
-      id: 'demo-user',
-      name: 'Champion',
-      email: 'demo@fitzone.app',
-      fitnessLevel: 'intermediate',
-      fitnessGoals: ['stamina', 'weight-loss'],
-      createdAt: new Date().toISOString(),
-    });
-    navigate('/onboarding');
-  };
+  // Auto-rotate slides
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % features.length);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, []);
 
-  const handleSkipToDemo = () => {
-    login({
-      id: 'demo-user',
-      name: 'Champion',
-      email: 'demo@fitzone.app',
-      fitnessLevel: 'intermediate',
-      fitnessGoals: ['stamina', 'weight-loss'],
-      createdAt: new Date().toISOString(),
-    });
-    navigate('/dashboard');
+  const handleGetStarted = () => {
+    navigate('/auth');
   };
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Hero Section */}
-      <div className="flex-1 relative overflow-hidden">
+      <div className="flex-1 relative overflow-hidden app-container">
         {/* Background Pattern */}
         <div className="absolute inset-0 opacity-30">
           <div 
@@ -140,7 +125,7 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* CTA Buttons */}
+          {/* CTA Button - Only Get Started, no demo */}
           <div className="space-y-3">
             <Button 
               variant="neon" 
@@ -152,18 +137,11 @@ export default function LandingPage() {
               Get Started
               <ChevronRight className="w-5 h-5 ml-2" />
             </Button>
-            <Button 
-              variant="ghost" 
-              className="w-full"
-              onClick={handleSkipToDemo}
-            >
-              Skip to Demo Dashboard
-            </Button>
           </div>
 
           {/* Footer Note */}
           <p className="text-center text-xs text-muted-foreground mt-4">
-            Connect Supabase for authentication & real data persistence
+            Sign up to start tracking your fitness journey
           </p>
         </div>
       </div>
