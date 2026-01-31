@@ -264,4 +264,19 @@
     background: hsl(var(--card) / 0.8);
     backdrop-filter: blur(10px);
   }
+
+  /* App container - constrained width for desktop/laptop */
+  .app-container {
+    @apply w-full max-w-md mx-auto;
+  }
+
+  /* Wider container for map views */
+  .app-container-wide {
+    @apply w-full max-w-2xl mx-auto;
+  }
+
+  /* Full width container for special pages */
+  .app-container-full {
+    @apply w-full max-w-4xl mx-auto;
+  }
 }

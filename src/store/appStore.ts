@@ -93,69 +93,8 @@ const initialStats: UserStats = {
   zonesLost: 0,
   xp: 0,
   level: 1,
-  streak: 3,
+  streak: 0,
 };
-
-// Mock zones for demo
-const mockZones: Zone[] = [
-  {
-    id: '1',
-    ownerId: 'user1',
-    ownerName: 'You',
-    name: 'Home Base',
-    coordinates: [],
-    center: { lat: 40.7128, lng: -74.006 },
-    level: 2,
-    createdAt: new Date().toISOString(),
-    defenseChallenge: { type: 'pushups', targetScore: 20 },
-  },
-  {
-    id: '2',
-    ownerId: 'enemy1',
-    ownerName: 'FitRunner42',
-    name: 'Central Park Zone',
-    coordinates: [],
-    center: { lat: 40.7829, lng: -73.9654 },
-    level: 3,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: '3',
-    ownerId: 'enemy2',
-    ownerName: 'SpeedDemon',
-    name: 'Downtown Territory',
-    coordinates: [],
-    center: { lat: 40.7484, lng: -73.9857 },
-    level: 1,
-    createdAt: new Date().toISOString(),
-  },
-];
-
-// Mock activities for demo
-const mockActivities: Activity[] = [
-  {
-    id: '1',
-    userId: 'user1',
-    type: 'run',
-    distance: 5200,
-    duration: 1800,
-    calories: 420,
-    path: [],
-    startedAt: new Date(Date.now() - 86400000).toISOString(),
-    endedAt: new Date(Date.now() - 86400000 + 1800000).toISOString(),
-  },
-  {
-    id: '2',
-    userId: 'user1',
-    type: 'walk',
-    distance: 3100,
-    duration: 2400,
-    calories: 180,
-    path: [],
-    startedAt: new Date(Date.now() - 172800000).toISOString(),
-    endedAt: new Date(Date.now() - 172800000 + 2400000).toISOString(),
-  },
-];
 
 export const useAppStore = create<AppState>()(
   persist(
@@ -163,9 +102,9 @@ export const useAppStore = create<AppState>()(
       isAuthenticated: false,
       isOnboarded: false,
       user: null,
-      stats: { ...initialStats, xp: 2450, level: 5, zonesOwned: 3, zonesCaptured: 7, totalDistance: 45200, totalCalories: 3200, totalActivities: 28 },
-      zones: mockZones,
-      activities: mockActivities,
+      stats: initialStats,
+      zones: [],
+      activities: [],
       currentActivity: null,
       isTracking: false,
 
