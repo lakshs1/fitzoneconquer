@@ -69,6 +69,22 @@ interface GoogleMapProps {
 const DEFAULT_CENTER = { lat: 40.7128, lng: -74.006 };
 const TILE_SIZE = 256;
 const TILE_BASE_URL = import.meta.env.VITE_OSM_TILE_BASE_URL || 'https://tile.openstreetmap.org';
+ * - Although this component keeps the historical name `GoogleMap` to avoid broad refactors,
+ *   it now uses OpenStreetMap raster tiles (Open Database License / ODbL).
+ * - Rendering pipeline:
+ *   1) Choose center point (user position while tracking, otherwise requested center).
+ *   2) Project lat/lng to world pixels using custom Web Mercator math.
+ *   3) Compute visible tile range from viewport size and center world coordinates.
+ *   4) Draw OSM tiles with absolute positioning.
+ *   5) Draw overlays (GPS marker, smoothed activity path, zones, ranked places).
+ *
+ * Custom algorithm hooks used here:
+ * - `smoothGpsPath` removes jitter from GPS route data.
+ * - `rankNearbyPlaces` powers "find places" scoring with distance+rating+type weights.
+ */
+
+const DEFAULT_CENTER = { lat: 40.7128, lng: -74.006 };
+const TILE_SIZE = 256;
 
 export function GoogleMap({
   center,
@@ -125,11 +141,16 @@ export function GoogleMap({
         output.push({
           key: `${x}:${y}:${zoom}`,
           src: tileUrl(x, y, zoom, TILE_BASE_URL),
+          src: tileUrl(x, y, zoom),
           left: x * TILE_SIZE - topLeftWorld.x,
           top: y * TILE_SIZE - topLeftWorld.y,
         });
       }
     }
+
+    return output;
+  }, [topLeftWorld, viewport.width, viewport.height, zoom]);
+
 
     return output;
   }, [topLeftWorld, viewport.width, viewport.height, zoom]);
@@ -188,6 +209,10 @@ export function GoogleMap({
                 return `${pos.x},${pos.y}`;
               })
               .join(' ')}
+            points={smoothedPath.map((p) => {
+              const pos = toScreen(p);
+              return `${pos.x},${pos.y}`;
+            }).join(' ')}
             fill="none"
             stroke="rgb(250, 204, 21)"
             strokeWidth={4}
@@ -225,6 +250,7 @@ export function GoogleMap({
 
       <div className="absolute bottom-3 left-3 right-3 rounded bg-card/90 p-2 text-xs text-muted-foreground">
         © OpenStreetMap contributors (ODbL) • Tile host: {TILE_BASE_URL} • Zoom {zoom}
+        © OpenStreetMap contributors (ODbL) • Zoom {zoom} • GPS {userPosition ? 'active' : 'waiting'}
       </div>
     </div>
   );

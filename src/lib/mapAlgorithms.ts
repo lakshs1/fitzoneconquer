@@ -137,4 +137,8 @@ export function tileUrl(x: number, y: number, zoom: number, baseUrl = 'https://t
   const tileCount = 2 ** zoom;
   const wrappedX = ((x % tileCount) + tileCount) % tileCount;
   return `${baseUrl}/${zoom}/${wrappedX}/${y}.png`;
+export function tileUrl(x: number, y: number, zoom: number): string {
+  const tileCount = 2 ** zoom;
+  const wrappedX = ((x % tileCount) + tileCount) % tileCount;
+  return `https://tile.openstreetmap.org/${zoom}/${wrappedX}/${y}.png`;
 }
