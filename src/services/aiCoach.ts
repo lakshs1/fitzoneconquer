@@ -190,6 +190,41 @@ function generateFallbackResponse(
 }
 
 /**
+ * Call LLM via custom Python backend (FastAPI).
+ * 
+ * Expected request body:
+ * { messages: ChatMessage[], context: UserContext }
+ * 
+ * Expected response:
+ * { message: string, suggestions?: string[] }
+ */
+async function callPythonBackend(
+  messages: ChatMessage[],
+  context: UserContext
+): Promise<CoachResponse | null> {
+  const baseUrl =
+    import.meta.env.VITE_AI_COACH_URL || 'http://localhost:8000';
+
+  try {
+    const response = await fetch(`${baseUrl}/ai-coach`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages, context }),
+    });
+
+    if (!response.ok) {
+      console.warn('Python LLM call failed, using fallback:', response.status);
+      return null;
+    }
+
+    return (await response.json()) as CoachResponse;
+  } catch (err) {
+    console.warn('Python LLM service unavailable, using fallback');
+    return null;
+  }
+}
+
+/**
  * Call LLM via Edge Function
  * 
  * TO CONFIGURE YOUR OWN LLM:
@@ -203,7 +238,7 @@ function generateFallbackResponse(
  * Expected response:
  * { message: string, suggestions?: string[] }
  */
-async function callLLM(
+async function callEdgeFunction(
   messages: ChatMessage[],
   context: UserContext
 ): Promise<CoachResponse | null> {
@@ -211,15 +246,15 @@ async function callLLM(
     const { data, error } = await supabase.functions.invoke('ai-coach', {
       body: { messages, context },
     });
-    
+
     if (error) {
-      console.warn('LLM call failed, using fallback:', error);
+      console.warn('Edge function call failed, using fallback:', error);
       return null;
     }
-    
+
     return data as CoachResponse;
   } catch (err) {
-    console.warn('LLM service unavailable, using fallback');
+    console.warn('Edge function service unavailable, using fallback');
     return null;
   }
 }
@@ -239,15 +274,18 @@ export async function getCoachResponse(
     return { message: "Hey there! Ready to conquer some zones? 💪" };
   }
   
-  // Try LLM first
-  const llmResponse = await callLLM(
+  // Try Python backend first, then edge function
+  const pythonResponse = await callPythonBackend(
     [{ role: 'system', content: SYSTEM_PROMPT }, ...messages],
     context
   );
-  
-  if (llmResponse) {
-    return llmResponse;
-  }
+  if (pythonResponse) return pythonResponse;
+
+  const edgeResponse = await callEdgeFunction(
+    [{ role: 'system', content: SYSTEM_PROMPT }, ...messages],
+    context
+  );
+  if (edgeResponse) return edgeResponse;
   
   // Fallback to rule-based
   return generateFallbackResponse(lastUserMessage.content, context);

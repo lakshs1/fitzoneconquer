@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { cn } from '@/lib/utils';
+import { getCoachResponse, getTimeOfDay, type ChatMessage } from '@/services/aiCoach';
 
 interface Message {
   id: string;
@@ -31,14 +32,20 @@ export default function AICoach() {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
 
-  const mockResponses: Record<string, string> = {
-    "Today's workout plan": "Based on your fitness level and recent activity, here's your plan:\n\n🏃 **Warm-up:** 5 min light jog\n💪 **Main:** 3km run at moderate pace\n🧘 **Cool-down:** 5 min stretching\n\nThis should earn you ~180 XP and help defend your zones!",
-    "Am I resting enough?": "Looking at your data, you've been active 5 of the last 7 days. That's good! But I notice your sleep time varies. Try to maintain a consistent 7-8 hours. Tomorrow would be a good rest day to optimize recovery. 😴",
-    "How to level up faster?": "Great question! Here are the fastest ways to earn XP:\n\n⚡ **Zone captures:** +500 XP each\n🎯 **Daily goals:** +250 XP\n🔥 **Streaks:** Bonus multiplier\n🏆 **Playground wins:** +300 XP\n\nFocus on capturing nearby zones for quick gains!",
-    "Improve my stamina": "To build stamina, try this 4-week plan:\n\n**Week 1-2:** Increase run distance by 10% weekly\n**Week 3-4:** Add interval training (30s sprint, 90s jog)\n\nYour current pace is 5:30/km. Let's aim for 5:00/km in 4 weeks! 🚀",
-  };
+  const buildContext = () => ({
+    name: 'Champion',
+    fitnessLevel: 'intermediate',
+    fitnessGoals: ['stamina', 'weight loss'],
+    totalDistance: 12000,
+    totalActivities: 24,
+    xp: 1850,
+    level: 6,
+    streak: 3,
+    zonesOwned: 8,
+    timeOfDay: getTimeOfDay(),
+  });
 
-  const handleSend = (text: string) => {
+  const handleSend = async (text: string) => {
     if (!text.trim()) return;
 
     const userMessage: Message = {
@@ -47,23 +54,34 @@ export default function AICoach() {
       content: text,
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    setMessages((prev) => [...prev, userMessage]);
     setInput('');
     setIsTyping(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const response = mockResponses[text] || "That's a great question! In the full version, I'll connect to an AI model to give you personalized advice based on your activity data, goals, and progress. For now, try asking about your workout plan or how to level up faster!";
-      
+    try {
+      const llmMessages: ChatMessage[] = [
+        ...messages.map((m) => ({ role: m.role, content: m.content })),
+        { role: 'user', content: text },
+      ];
+
+      const response = await getCoachResponse(llmMessages, buildContext());
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: response,
+        content: response.message,
       };
 
-      setMessages(prev => [...prev, assistantMessage]);
+      setMessages((prev) => [...prev, assistantMessage]);
+    } catch (err) {
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: 'Sorry, I had trouble reaching the AI coach. Try again in a moment.',
+      };
+      setMessages((prev) => [...prev, assistantMessage]);
+    } finally {
       setIsTyping(false);
-    }, 1500);
+    }
   };
 
   return (
