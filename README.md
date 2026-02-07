@@ -54,3 +54,42 @@ This project is built with:
 - Tailwind CSS
 
 
+
+## Open map hosting setup (frontend + backend)
+
+The map module now uses OpenStreetMap-style raster tiles and does not require Google Maps at runtime.
+
+### 1) Fast start (frontend only)
+Use public OSM tiles for development only:
+
+```bash
+VITE_OSM_TILE_BASE_URL=https://tile.openstreetmap.org
+```
+
+Add this in your `.env` file and run the app.
+
+### 2) Production recommendation (host your own tile service)
+For production, do not hammer the public OSM tile server. Host your own tile endpoint and point the frontend to it:
+
+```bash
+VITE_OSM_TILE_BASE_URL=https://maps.yourdomain.com/tiles
+```
+
+### 3) Backend architecture options
+You can run either of these:
+
+- **Managed map host (easy):** MapTiler, Stadia Maps, Jawg, etc. (still open-data based, easier ops).
+- **Self-hosted tiles (full control):**
+  - PostGIS + `openmaptiles` pipeline + `tileserver-gl` (vector/raster)
+  - or `tegola`/`tilelive` style stack
+  - or pre-rendered raster tiles in object storage + CDN
+
+### 4) Minimal backend contract for this app
+- Frontend requests tiles as: `/{z}/{x}/{y}.png`
+- Backend should support caching headers and CDN edge caching.
+- If you need auth/rate limiting, put a reverse proxy in front (`/tiles/:z/:x/:y.png`) and set `VITE_OSM_TILE_BASE_URL` to that proxy.
+
+### 5) GPS and places
+- GPS tracking is browser Geolocation API (frontend).
+- Place ranking/search logic is currently app-side algorithmic ranking over your place dataset.
+- If you want backend place search, expose `/api/places?lat=..&lng=..` and return nearby gyms/parks/trails; frontend can keep using existing ranking fields.

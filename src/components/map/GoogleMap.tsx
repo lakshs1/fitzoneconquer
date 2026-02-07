@@ -37,6 +37,38 @@ interface GoogleMapProps {
 /**
  * OPEN MAP IMPLEMENTATION NOTES
  * =============================
+ * - This component now runs 100% on open-license map data using OpenStreetMap tiles.
+ * - No Google Maps API is executed at runtime in this implementation.
+ * - Tile host can be configured with Vite env var `VITE_OSM_TILE_BASE_URL`.
+ *
+ * Rendering pipeline:
+ * 1) Choose center point (tracking -> user position, else provided center/default).
+ * 2) Project lat/lng to world pixels using custom Web Mercator formulas.
+ * 3) Compute visible tile range from viewport + zoom.
+ * 4) Draw OSM tiles in a lightweight absolute-positioned layer.
+ * 5) Draw overlays (zones, smoothed GPS path, marker, place chips).
+ */
+
+/**
+ * LEGACY GOOGLE MAPS REFERENCE (COMMENTED FOR FUTURE)
+ * ===================================================
+ * The previous Google Maps approach is intentionally kept only as commented notes.
+ * It is not imported, loaded, or executed.
+ *
+ * // const GOOGLE_MAPS_API_KEY = '...';
+ * // useEffect(() => {
+ * //   const script = document.createElement('script');
+ * //   script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,geometry`;
+ * //   document.head.appendChild(script);
+ * // }, []);
+ * // const map = new window.google.maps.Map(mapRef.current, { center, zoom, styles });
+ * // const marker = new window.google.maps.Marker({ map, position: userPosition });
+ * // const polyline = new window.google.maps.Polyline({ path: activityPath, map });
+ */
+
+const DEFAULT_CENTER = { lat: 40.7128, lng: -74.006 };
+const TILE_SIZE = 256;
+const TILE_BASE_URL = import.meta.env.VITE_OSM_TILE_BASE_URL || 'https://tile.openstreetmap.org';
  * - Although this component keeps the historical name `GoogleMap` to avoid broad refactors,
  *   it now uses OpenStreetMap raster tiles (Open Database License / ODbL).
  * - Rendering pipeline:
@@ -108,12 +140,17 @@ export function GoogleMap({
         if (y < 0 || y >= 2 ** zoom) continue;
         output.push({
           key: `${x}:${y}:${zoom}`,
+          src: tileUrl(x, y, zoom, TILE_BASE_URL),
           src: tileUrl(x, y, zoom),
           left: x * TILE_SIZE - topLeftWorld.x,
           top: y * TILE_SIZE - topLeftWorld.y,
         });
       }
     }
+
+    return output;
+  }, [topLeftWorld, viewport.width, viewport.height, zoom]);
+
 
     return output;
   }, [topLeftWorld, viewport.width, viewport.height, zoom]);
@@ -166,6 +203,12 @@ export function GoogleMap({
 
         {smoothedPath.length > 1 && (
           <polyline
+            points={smoothedPath
+              .map((p) => {
+                const pos = toScreen(p);
+                return `${pos.x},${pos.y}`;
+              })
+              .join(' ')}
             points={smoothedPath.map((p) => {
               const pos = toScreen(p);
               return `${pos.x},${pos.y}`;
@@ -206,6 +249,7 @@ export function GoogleMap({
       )}
 
       <div className="absolute bottom-3 left-3 right-3 rounded bg-card/90 p-2 text-xs text-muted-foreground">
+        © OpenStreetMap contributors (ODbL) • Tile host: {TILE_BASE_URL} • Zoom {zoom}
         © OpenStreetMap contributors (ODbL) • Zoom {zoom} • GPS {userPosition ? 'active' : 'waiting'}
       </div>
     </div>
