@@ -1,19 +1,22 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Navigation, Layers, ZoomIn, ZoomOut } from 'lucide-react';
+import { Navigation, Layers, ZoomIn, ZoomOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { GoogleMap } from '@/components/map/GoogleMap';
 import { useAuth } from '@/contexts/AuthContext';
 import { useGeolocation } from '@/hooks/useGeolocation';
-import { cn } from '@/lib/utils';
 
 export default function MapView() {
   const navigate = useNavigate();
-  const { user, profile } = useAuth();
+  const { profile } = useAuth();
   const { position } = useGeolocation();
   const [selectedZone, setSelectedZone] = useState<string | null>(null);
   const [showNearbyPlaces, setShowNearbyPlaces] = useState(false);
+  const [zoom, setZoom] = useState(15); // NOTE: allow user-controlled zoom in/out
+  const [tileLayer, setTileLayer] = useState<'standard' | 'terrain' | 'hot'>('standard'); // NOTE: selectable map layers
+  const [panResetKey, setPanResetKey] = useState(0); // NOTE: increment to force map recenter after drag
+  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | undefined>(undefined); // NOTE: explicit recenter target
 
   // TODO: Fetch zones from Supabase
   const zones = [
@@ -58,11 +61,22 @@ export default function MapView() {
     navigate('/activity', { state: { challengeZoneId: selectedZone } });
   };
 
+  const tileBaseUrl =
+    tileLayer === 'terrain'
+      ? 'https://a.tile.opentopomap.org' // NOTE: terrain-style tiles (no API key)
+      : tileLayer === 'hot'
+        ? 'https://a.tile.openstreetmap.fr/hot' // NOTE: high-contrast HOT layer for accessibility
+        : 'https://tile.openstreetmap.org';
+
   return (
     <AppLayout>
       <div className="relative h-[calc(100vh-5rem)]">
         {/* Google Map Component */}
         <GoogleMap
+          center={mapCenter}
+          zoom={zoom}
+          tileBaseUrl={tileBaseUrl}
+          panResetKey={panResetKey}
           userPosition={position}
           zones={zones}
           nearbyPlaces={nearbyPlaces}
@@ -73,10 +87,20 @@ export default function MapView() {
 
         {/* Map Controls */}
         <div className="absolute top-4 right-4 flex flex-col gap-2">
-          <Button variant="secondary" size="icon" className="glass">
+          <Button
+            variant="secondary"
+            size="icon"
+            className="glass"
+            onClick={() => setZoom((z) => Math.min(19, z + 1))} // NOTE: clamp zoom in
+          >
             <ZoomIn className="w-4 h-4" />
           </Button>
-          <Button variant="secondary" size="icon" className="glass">
+          <Button
+            variant="secondary"
+            size="icon"
+            className="glass"
+            onClick={() => setZoom((z) => Math.max(3, z - 1))} // NOTE: clamp zoom out
+          >
             <ZoomOut className="w-4 h-4" />
           </Button>
           <Button 
@@ -94,9 +118,42 @@ export default function MapView() {
           variant="neon" 
           size="icon" 
           className="absolute bottom-24 right-4 w-12 h-12 rounded-full"
+          onClick={() => {
+            if (!position) return;
+            setMapCenter({ lat: position.lat, lng: position.lng }); // NOTE: recenter map to current GPS position
+            setPanResetKey((v) => v + 1); // NOTE: reset drag offset so recenter is exact
+          }}
         >
           <Navigation className="w-5 h-5" />
         </Button>
+
+        {/* Layer Selector */}
+        <div className="absolute top-4 right-16 glass rounded-lg p-2 space-y-2">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Layer</p>
+          <div className="flex flex-col gap-2">
+            <Button
+              variant={tileLayer === 'standard' ? 'neon' : 'secondary'}
+              size="sm"
+              onClick={() => setTileLayer('standard')} // NOTE: standard OSM tiles
+            >
+              Standard
+            </Button>
+            <Button
+              variant={tileLayer === 'terrain' ? 'neon' : 'secondary'}
+              size="sm"
+              onClick={() => setTileLayer('terrain')} // NOTE: terrain/topographic tiles
+            >
+              Terrain
+            </Button>
+            <Button
+              variant={tileLayer === 'hot' ? 'neon' : 'secondary'}
+              size="sm"
+              onClick={() => setTileLayer('hot')} // NOTE: HOT style for contrast
+            >
+              Places
+            </Button>
+          </div>
+        </div>
 
         {/* Legend */}
         <div className="absolute top-4 left-4 glass rounded-lg p-3 space-y-2">

@@ -191,7 +191,12 @@ export function useActivityTracking() {
 
   const startActivity = useCallback(async (type: 'run' | 'walk' | 'cycle') => {
     try {
-      const currentPos = await getCurrentPosition();
+      const currentPos = await getCurrentPosition().catch((error) => {
+        if (position) {
+          return position; // NOTE: fall back to watchPosition data if getCurrentPosition fails
+        }
+        throw error;
+      });
       
       setState({
         isTracking: true,
@@ -212,9 +217,21 @@ export function useActivityTracking() {
       
       return { success: true, startPosition: currentPos };
     } catch (error) {
-      return { success: false, error: 'Failed to get GPS position' };
+      if (error && typeof error === 'object' && 'code' in error) {
+        const geoError = error as GeolocationPositionError;
+        const message =
+          geoError.code === geoError.PERMISSION_DENIED
+            ? 'Location permission denied. Enable GPS access.'
+            : geoError.code === geoError.POSITION_UNAVAILABLE
+              ? 'Location unavailable. Check GPS signal.'
+              : geoError.code === geoError.TIMEOUT
+                ? 'Location request timed out. Try moving to an open area.'
+                : 'Failed to get GPS position.';
+        return { success: false, error: message }; // NOTE: surface real geolocation error for clearer UX
+      }
+      return { success: false, error: 'Failed to get GPS position.' };
     }
-  }, [getCurrentPosition]);
+  }, [getCurrentPosition, position]);
 
   const pauseActivity = useCallback(() => {
     setState((prev) => ({ ...prev, isPaused: true }));

@@ -211,12 +211,12 @@ export default function ActivityTracker() {
           {!isTracking ? (
             <div className="space-y-3">
               <p className="text-center text-sm text-muted-foreground">Choose activity type:</p>
+              {/* NOTE: allow activity selection even before watchPosition updates; getCurrentPosition runs on click */}
               <div className="grid grid-cols-3 gap-3">
                 <Button 
                   variant="neon" 
                   className="h-auto py-4 flex-col gap-2"
                   onClick={() => handleStart('run')}
-                  disabled={!position}
                 >
                   <span className="text-2xl">🏃</span>
                   <span>Run</span>
@@ -225,7 +225,6 @@ export default function ActivityTracker() {
                   variant="gaming" 
                   className="h-auto py-4 flex-col gap-2"
                   onClick={() => handleStart('walk')}
-                  disabled={!position}
                 >
                   <span className="text-2xl">🚶</span>
                   <span>Walk</span>
@@ -234,7 +233,6 @@ export default function ActivityTracker() {
                   variant="gaming" 
                   className="h-auto py-4 flex-col gap-2"
                   onClick={() => handleStart('cycle')}
-                  disabled={!position}
                 >
                   <span className="text-2xl">🚴</span>
                   <span>Cycle</span>

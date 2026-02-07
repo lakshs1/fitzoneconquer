@@ -16,9 +16,9 @@ describe('mapAlgorithms', () => {
 
   it('smooths jittery gps points', () => {
     const path = [
-      { lat: 40.7128, lng: -74.006 },
-      { lat: 40.7129, lng: -74.0059 },
-      { lat: 40.714, lng: -74.004 },
+      { lat: 40.7128, lng: -74.006, timestamp: 1 },
+      { lat: 40.7129, lng: -74.0059, timestamp: 2 },
+      { lat: 40.714, lng: -74.004, timestamp: 3 },
     ];
     const smoothed = smoothGpsPath(path, 0.3);
     expect(smoothed).toHaveLength(path.length);

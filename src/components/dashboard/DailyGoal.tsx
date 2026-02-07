@@ -1,18 +1,32 @@
 import { Target, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
+import { useActivities } from '@/hooks/useUserData';
 
 export function DailyGoal() {
   const navigate = useNavigate();
+  const { activities } = useActivities();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const todaysActivities = activities.filter(
+    (activity) => new Date(activity.started_at) >= today
+  );
+  const completedKm =
+    todaysActivities.reduce((sum, activity) => sum + (Number(activity.distance) || 0), 0) / 1000; // NOTE: use real user activity for today's progress
+  const targetKm = 3; // NOTE: keep a simple default target until per-user goals are stored
+  const rewardXp = Math.round(targetKm * 100); // NOTE: tie reward to target so it scales predictably
+  const goalType = todaysActivities[0]?.activity_type || 'Activity';
+
   const dailyGoal = {
-    type: 'Run',
-    target: 3,
+    type: goalType,
+    target: targetKm,
     unit: 'km',
-    completed: 1.8,
-    reward: 250,
+    completed: Number(completedKm.toFixed(2)),
+    reward: rewardXp,
   };
   
-  const progress = (dailyGoal.completed / dailyGoal.target) * 100;
+  const progress = dailyGoal.target ? (dailyGoal.completed / dailyGoal.target) * 100 : 0;
   const isComplete = progress >= 100;
 
   return (
