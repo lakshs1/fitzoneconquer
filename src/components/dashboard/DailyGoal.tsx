@@ -1,11 +1,18 @@
 import { Target, Check } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { useActivities } from '@/hooks/useUserData';
+import { Switch } from '@/components/ui/switch';
 
 export function DailyGoal() {
   const navigate = useNavigate();
   const { activities } = useActivities();
+  const [dailyStreakEnabled, setDailyStreakEnabled] = useState(() => localStorage.getItem('fitzone-daily-streak') === 'true');
+
+  useEffect(() => {
+    localStorage.setItem('fitzone-daily-streak', String(dailyStreakEnabled));
+  }, [dailyStreakEnabled]);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -54,6 +61,16 @@ export function DailyGoal() {
           className="absolute inset-y-0 left-0 bg-gradient-primary rounded-full transition-all duration-500"
           style={{ width: `${Math.min(progress, 100)}%` }}
         />
+      </div>
+
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Switch checked={dailyStreakEnabled} onCheckedChange={setDailyStreakEnabled} />
+          <span className="text-xs text-muted-foreground">Daily streak mode</span>
+        </div>
+        {dailyStreakEnabled && todaysActivities.length > 0 && (
+          <span className="text-xs text-success">Streak protected today ✅</span>
+        )}
       </div>
 
       <div className="flex items-center justify-between">

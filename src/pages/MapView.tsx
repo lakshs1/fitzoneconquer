@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Navigation, Layers, ZoomIn, ZoomOut } from 'lucide-react';
+import { Navigation, Layers, ZoomIn, ZoomOut, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { GoogleMap } from '@/components/map/GoogleMap';
 import { useAuth } from '@/contexts/AuthContext';
 import { useGeolocation } from '@/hooks/useGeolocation';
+import { selectBestZone } from '@/services/zoneDecision';
 
 export default function MapView() {
   const navigate = useNavigate();
@@ -17,6 +18,8 @@ export default function MapView() {
   const [tileLayer, setTileLayer] = useState<'standard' | 'terrain' | 'hot'>('standard'); // NOTE: selectable map layers
   const [panResetKey, setPanResetKey] = useState(0); // NOTE: increment to force map recenter after drag
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | undefined>(undefined); // NOTE: explicit recenter target
+  const [zoneReason, setZoneReason] = useState<string | null>(null);
+  const [isSelectingZone, setIsSelectingZone] = useState(false);
 
   // TODO: Fetch zones from Supabase
   const zones = [
@@ -56,9 +59,48 @@ export default function MapView() {
 
   const selectedZoneData = zones.find((z) => z.id === selectedZone);
 
+  const timeOfDay = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) return 'morning' as const;
+    if (hour >= 12 && hour < 17) return 'afternoon' as const;
+    if (hour >= 17 && hour < 21) return 'evening' as const;
+    return 'night' as const;
+  }, []);
+
   const handleChallengeZone = () => {
     // Navigate to activity tracker to start a zone capture
     navigate('/activity', { state: { challengeZoneId: selectedZone } });
+  };
+
+
+  const handleAiZonePick = async () => {
+    if (!position) return;
+    setIsSelectingZone(true);
+    const result = await selectBestZone(
+      zones.map((zone) => ({
+        id: zone.id,
+        center: zone.center,
+        isOwned: zone.isOwned,
+        level: zone.level,
+      })),
+      {
+        currentLocation: position,
+        streak: 0,
+        level: 1,
+        timeOfDay,
+      }
+    );
+
+    if (result) {
+      setSelectedZone(result.zoneId);
+      setZoneReason(result.reason);
+      const pickedZone = zones.find((zone) => zone.id === result.zoneId);
+      if (pickedZone) {
+        setMapCenter(pickedZone.center);
+        setPanResetKey((v) => v + 1);
+      }
+    }
+    setIsSelectingZone(false);
   };
 
   const tileBaseUrl =
@@ -102,6 +144,15 @@ export default function MapView() {
             onClick={() => setZoom((z) => Math.max(3, z - 1))} // NOTE: clamp zoom out
           >
             <ZoomOut className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="secondary"
+            className="glass px-3"
+            onClick={handleAiZonePick}
+            disabled={isSelectingZone || !position}
+          >
+            <Sparkles className="w-4 h-4 mr-1" />
+            {isSelectingZone ? 'Selecting...' : 'AI Zone'}
           </Button>
           <Button 
             variant={showNearbyPlaces ? "neon" : "secondary"}
@@ -198,6 +249,8 @@ export default function MapView() {
               </div>
             </div>
             
+            {zoneReason && <p className="text-xs text-primary mb-2">🤖 {zoneReason}</p>}
+
             {!selectedZoneData.isOwned && (
               <Button variant="danger" className="w-full" onClick={handleChallengeZone}>
                 ⚔️ Challenge Zone (20 min activity)

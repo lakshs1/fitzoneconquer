@@ -4,6 +4,7 @@ import json
 import os
 import logging
 from typing import Any, Dict, List, Literal, Optional, TypedDict
+from math import sqrt
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
@@ -68,6 +69,32 @@ class CoachResponse(BaseModel):
     message: str
     suggestions: Optional[List[str]] = None
     recommendedPlace: Optional[Dict[str, Any]] = None
+
+
+class MapZone(BaseModel):
+    id: str
+    center: Dict[str, float]
+    isOwned: bool = False
+    level: int = 1
+
+
+class ZoneDecisionContext(BaseModel):
+    currentLocation: Dict[str, float]
+    streak: int = 0
+    level: int = 1
+    timeOfDay: Literal["morning", "afternoon", "evening", "night"] = "afternoon"
+
+
+class ZoneDecisionRequest(BaseModel):
+    zones: List[MapZone] = Field(default_factory=list)
+    context: ZoneDecisionContext
+
+
+class ZoneDecisionResponse(BaseModel):
+    zoneId: str
+    score: float
+    reason: str
+    model: str
 
 
 class GraphState(TypedDict):
@@ -139,6 +166,53 @@ def _build_graph():
     return graph.compile()
 
 
+def _zone_distance_km(a: Dict[str, float], b: Dict[str, float]) -> float:
+    # Lightweight flat-earth approximation for short city distances.
+    lat_scale = 111.0
+    lng_scale = 111.0 * max(0.2, abs((a["lat"] + b["lat"]) / 2) / 90)
+    dlat = (a["lat"] - b["lat"]) * lat_scale
+    dlng = (a["lng"] - b["lng"]) * lng_scale
+    return sqrt((dlat * dlat) + (dlng * dlng))
+
+
+def _heuristic_zone_score(zone: MapZone, context: ZoneDecisionContext) -> float:
+    distance = _zone_distance_km(zone.center, context.currentLocation)
+    distance_score = max(0.0, 1 - (distance / 4.0))
+    ownership_score = 1.0 if not zone.isOwned else 0.25
+    level_target = min(zone.level, context.level + 1)
+    level_score = max(0.2, 1 - (abs(level_target - context.level) / 5))
+    streak_bonus = min(0.35, context.streak / 30)
+    daytime_bonus = 0.1 if context.timeOfDay in ["morning", "evening"] else 0.0
+
+    # "ML-like" weighted scoring model.
+    return round(
+        (distance_score * 0.45)
+        + (ownership_score * 0.30)
+        + (level_score * 0.20)
+        + streak_bonus
+        + daytime_bonus,
+        4,
+    )
+
+
+def _gemini_reason_for_zone(zone: MapZone, context: ZoneDecisionContext, score: float) -> str:
+    try:
+        llm = _build_llm()
+        prompt = (
+            "Give one short sentence explaining why this map zone is a good target to capture in a fitness game. "
+            "Be practical and motivational. "
+            f"Zone: {zone.model_dump_json()} Context: {context.model_dump_json()} Score: {score}"
+        )
+        response = llm.invoke([HumanMessage(content=prompt)])
+        content = response.content if hasattr(response, "content") else str(response)
+        if isinstance(content, str) and content.strip():
+            return content.strip()
+    except Exception:
+        logger.exception("Gemini reasoning failed for zone decision")
+
+    return "Best balance of distance, difficulty, and capture chance for your next streak-safe conquest."
+
+
 app = FastAPI(title="FitZone AI Coach")
 
 app.add_middleware(
@@ -172,3 +246,23 @@ def ai_coach(payload: CoachRequest):
         raise HTTPException(status_code=500, detail="AI coach returned invalid state")
 
     return CoachResponse(**result["result"])
+
+
+@app.post("/zone-decision", response_model=ZoneDecisionResponse)
+def zone_decision(payload: ZoneDecisionRequest):
+    if not payload.zones:
+        raise HTTPException(status_code=400, detail="No zones provided")
+
+    scored = [
+        (zone, _heuristic_zone_score(zone, payload.context))
+        for zone in payload.zones
+    ]
+    best_zone, best_score = max(scored, key=lambda item: item[1])
+    reason = _gemini_reason_for_zone(best_zone, payload.context, best_score)
+
+    return ZoneDecisionResponse(
+        zoneId=best_zone.id,
+        score=best_score,
+        reason=reason,
+        model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash") + "+heuristic",
+    )
