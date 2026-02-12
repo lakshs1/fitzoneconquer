@@ -8,6 +8,7 @@ import { DailyGoal } from '@/components/dashboard/DailyGoal';
 import { QuickActions } from '@/components/dashboard/QuickActions';
 import { RecentActivity } from '@/components/dashboard/RecentActivity';
 import { AICoachCard } from '@/components/dashboard/AICoachCard';
+import { DailyGoToZones } from '@/components/dashboard/DailyGoToZones';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function Dashboard() {
@@ -103,6 +104,9 @@ export default function Dashboard() {
 
         {/* AI Coach */}
         <AICoachCard />
+
+        {/* Daily go-to zones */}
+        <DailyGoToZones />
 
         {/* Recent Activity */}
         <RecentActivity />
