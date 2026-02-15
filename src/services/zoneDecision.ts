@@ -1,5 +1,7 @@
 export interface DecisionZone {
   id: string;
+  name?: string;
+  type?: 'park' | 'trail' | 'runway' | 'greenway' | 'waterfront' | 'gym' | string;
   center: { lat: number; lng: number };
   isOwned: boolean;
   level: number;
@@ -17,6 +19,10 @@ export interface ZoneDecisionResult {
   score: number;
   reason: string;
   model: string;
+  distanceKm: number;
+  estimatedRouteKm: number;
+  estimatedTravelMinutes: number;
+  idealPath: string;
 }
 
 export async function selectBestZone(

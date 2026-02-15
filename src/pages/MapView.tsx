@@ -8,6 +8,23 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { selectBestZone } from '@/services/zoneDecision';
 
+function offsetPoint(origin: { lat: number; lng: number }, northMeters: number, eastMeters: number) {
+  const lat = origin.lat + northMeters / 111_320;
+  const lng =
+    origin.lng +
+    eastMeters / (111_320 * Math.max(0.2, Math.cos((origin.lat * Math.PI) / 180)));
+  return { lat, lng };
+}
+
+function squareAround(center: { lat: number; lng: number }, halfSizeMeters: number) {
+  return [
+    offsetPoint(center, halfSizeMeters, -halfSizeMeters),
+    offsetPoint(center, halfSizeMeters, halfSizeMeters),
+    offsetPoint(center, -halfSizeMeters, halfSizeMeters),
+    offsetPoint(center, -halfSizeMeters, -halfSizeMeters),
+  ];
+}
+
 export default function MapView() {
   const navigate = useNavigate();
   const { profile } = useAuth();
@@ -21,41 +38,38 @@ export default function MapView() {
   const [zoneReason, setZoneReason] = useState<string | null>(null);
   const [isSelectingZone, setIsSelectingZone] = useState(false);
 
-  // TODO: Fetch zones from Supabase
-  const zones = [
-    {
-      id: '1',
-      coordinates: [
-        { lat: 40.7128, lng: -74.006 },
-        { lat: 40.7138, lng: -74.005 },
-        { lat: 40.7133, lng: -74.004 },
-        { lat: 40.7123, lng: -74.005 },
-      ],
-      center: { lat: 40.7128, lng: -74.006 },
-      isOwned: true,
-      ownerName: profile?.name || 'You',
-      level: 2,
-    },
-    {
-      id: '2',
-      coordinates: [
-        { lat: 40.7150, lng: -74.008 },
-        { lat: 40.7160, lng: -74.007 },
-        { lat: 40.7155, lng: -74.006 },
-        { lat: 40.7145, lng: -74.007 },
-      ],
-      center: { lat: 40.7150, lng: -74.008 },
-      isOwned: false,
-      ownerName: 'FitRunner42',
-      level: 3,
-    },
-  ];
+  const zones = useMemo(() => {
+    const anchor = position ?? { lat: 40.7128, lng: -74.006 };
+    const templates = [
+      { id: 'zone-n', name: 'North Park Loop', type: 'park' as const, north: 320, east: 120, size: 120, isOwned: false, level: 1 },
+      { id: 'zone-w', name: 'West Tempo Trail', type: 'trail' as const, north: 140, east: -420, size: 140, isOwned: false, level: 2 },
+      { id: 'zone-s', name: 'South Recovery Greenway', type: 'greenway' as const, north: -360, east: 80, size: 130, isOwned: true, level: 2 },
+      { id: 'zone-e', name: 'East Sprint Runway', type: 'runway' as const, north: -40, east: 520, size: 110, isOwned: false, level: 3 },
+    ];
 
-  // TODO: Fetch from Google Places API
-  const nearbyPlaces = [
-    { id: 'gym1', name: 'FitLife Gym', type: 'gym' as const, location: { lat: 40.714, lng: -74.005 } },
-    { id: 'park1', name: 'Central Park', type: 'park' as const, location: { lat: 40.716, lng: -74.009 } },
-  ];
+    return templates.map((zone) => {
+      const center = offsetPoint(anchor, zone.north, zone.east);
+      return {
+        id: zone.id,
+        name: zone.name,
+        type: zone.type,
+        coordinates: squareAround(center, zone.size),
+        center,
+        isOwned: zone.isOwned,
+        ownerName: zone.isOwned ? profile?.name || 'You' : 'Rival',
+        level: zone.level,
+      };
+    });
+  }, [position, profile?.name]);
+
+  const nearbyPlaces = useMemo(() => {
+    const anchor = position ?? { lat: 40.7128, lng: -74.006 };
+    return [
+      { id: 'place-gym', name: 'Nearby Power Gym', type: 'gym' as const, location: offsetPoint(anchor, 180, -90) },
+      { id: 'place-park', name: 'Local City Park', type: 'park' as const, location: offsetPoint(anchor, -280, 260) },
+      { id: 'place-trail', name: 'Riverside Trail', type: 'trail' as const, location: offsetPoint(anchor, 410, 310) },
+    ];
+  }, [position]);
 
   const selectedZoneData = zones.find((z) => z.id === selectedZone);
 
@@ -74,17 +88,20 @@ export default function MapView() {
 
 
   const handleAiZonePick = async () => {
-    if (!position) return;
+    const currentLocation = position ?? mapCenter ?? zones[0]?.center;
+    if (!currentLocation || zones.length === 0) return;
     setIsSelectingZone(true);
     const result = await selectBestZone(
       zones.map((zone) => ({
         id: zone.id,
+        name: zone.name,
+        type: zone.type,
         center: zone.center,
         isOwned: zone.isOwned,
         level: zone.level,
       })),
       {
-        currentLocation: position,
+        currentLocation,
         streak: 0,
         level: 1,
         timeOfDay,
@@ -93,12 +110,16 @@ export default function MapView() {
 
     if (result) {
       setSelectedZone(result.zoneId);
-      setZoneReason(result.reason);
+      setZoneReason(
+        `${result.reason} Route ~${result.estimatedRouteKm.toFixed(2)} km (${result.estimatedTravelMinutes} min). ${result.idealPath}.`
+      );
       const pickedZone = zones.find((zone) => zone.id === result.zoneId);
       if (pickedZone) {
         setMapCenter(pickedZone.center);
         setPanResetKey((v) => v + 1);
       }
+    } else {
+      setZoneReason('No suitable nearby zone found. Move the map to your area and try AI Zone again.');
     }
     setIsSelectingZone(false);
   };
@@ -149,7 +170,7 @@ export default function MapView() {
             variant="secondary"
             className="glass px-3"
             onClick={handleAiZonePick}
-            disabled={isSelectingZone || !position}
+            disabled={isSelectingZone || zones.length === 0}
           >
             <Sparkles className="w-4 h-4 mr-1" />
             {isSelectingZone ? 'Selecting...' : 'AI Zone'}
@@ -236,7 +257,7 @@ export default function MapView() {
           <div className="absolute bottom-20 left-4 right-4 glass rounded-xl p-4 animate-slide-up">
             <div className="flex items-center justify-between mb-3">
               <div>
-                <p className="font-display font-bold">Zone #{selectedZoneData.id}</p>
+                <p className="font-display font-bold">{selectedZoneData.name}</p>
                 <p className="text-sm text-muted-foreground">
                   Owned by{' '}
                   <span className={selectedZoneData.isOwned ? 'text-primary' : 'text-destructive'}>
