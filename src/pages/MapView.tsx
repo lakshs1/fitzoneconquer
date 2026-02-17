@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Navigation, Layers, ZoomIn, ZoomOut, Sparkles } from 'lucide-react';
+import { Navigation, Layers, ZoomIn, ZoomOut, Sparkles, MapPinned } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { GoogleMap } from '@/components/map/GoogleMap';
@@ -31,10 +31,10 @@ export default function MapView() {
   const { position } = useGeolocation();
   const [selectedZone, setSelectedZone] = useState<string | null>(null);
   const [showNearbyPlaces, setShowNearbyPlaces] = useState(false);
-  const [zoom, setZoom] = useState(15); // NOTE: allow user-controlled zoom in/out
-  const [tileLayer, setTileLayer] = useState<'standard' | 'terrain' | 'hot'>('standard'); // NOTE: selectable map layers
-  const [panResetKey, setPanResetKey] = useState(0); // NOTE: increment to force map recenter after drag
-  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | undefined>(undefined); // NOTE: explicit recenter target
+  const [zoom, setZoom] = useState(15);
+  const [tileLayer, setTileLayer] = useState<'standard' | 'terrain' | 'dark'>('standard');
+  const [panResetKey, setPanResetKey] = useState(0);
+  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | undefined>(undefined);
   const [zoneReason, setZoneReason] = useState<string | null>(null);
   const [isSelectingZone, setIsSelectingZone] = useState(false);
 
@@ -82,10 +82,8 @@ export default function MapView() {
   }, []);
 
   const handleChallengeZone = () => {
-    // Navigate to activity tracker to start a zone capture
     navigate('/activity', { state: { challengeZoneId: selectedZone } });
   };
-
 
   const handleAiZonePick = async () => {
     const currentLocation = position ?? mapCenter ?? zones[0]?.center;
@@ -126,174 +124,106 @@ export default function MapView() {
 
   const tileBaseUrl =
     tileLayer === 'terrain'
-      ? 'https://a.tile.opentopomap.org' // NOTE: terrain-style tiles (no API key)
-      : tileLayer === 'hot'
-        ? 'https://a.tile.openstreetmap.fr/hot' // NOTE: high-contrast HOT layer for accessibility
-        : 'https://tile.openstreetmap.org';
+      ? 'https://a.tile.opentopomap.org'
+      : tileLayer === 'dark'
+        ? 'https://a.basemaps.cartocdn.com/dark_all'
+        : 'https://a.basemaps.cartocdn.com/light_all';
 
   return (
-    <AppLayout>
-      <div className="relative h-[calc(100vh-5rem)]">
-        {/* Google Map Component */}
-        <GoogleMap
-          center={mapCenter}
-          zoom={zoom}
-          tileBaseUrl={tileBaseUrl}
-          panResetKey={panResetKey}
-          userPosition={position}
-          zones={zones}
-          nearbyPlaces={nearbyPlaces}
-          showNearbyPlaces={showNearbyPlaces}
-          onZoneClick={setSelectedZone}
-          onPlaceClick={(id) => console.log('Place clicked:', id)}
-        />
+    <AppLayout wide>
+      <div className="grid h-[calc(100vh-5rem)] gap-4 p-2 md:p-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="relative overflow-hidden rounded-2xl border border-primary/30 bg-card shadow-2xl shadow-black/40">
+          <GoogleMap
+            center={mapCenter}
+            zoom={zoom}
+            tileBaseUrl={tileBaseUrl}
+            panResetKey={panResetKey}
+            userPosition={position}
+            zones={zones}
+            nearbyPlaces={nearbyPlaces}
+            showNearbyPlaces={showNearbyPlaces}
+            onZoneClick={setSelectedZone}
+          />
 
-        {/* Map Controls */}
-        <div className="absolute top-4 right-4 flex flex-col gap-2">
+          <div className="absolute top-4 right-4 flex flex-col gap-2">
+            <Button variant="secondary" size="icon" className="glass" onClick={() => setZoom((z) => Math.min(19, z + 1))}>
+              <ZoomIn className="w-4 h-4" />
+            </Button>
+            <Button variant="secondary" size="icon" className="glass" onClick={() => setZoom((z) => Math.max(3, z - 1))}>
+              <ZoomOut className="w-4 h-4" />
+            </Button>
+            <Button variant={showNearbyPlaces ? 'neon' : 'secondary'} size="icon" className="glass" onClick={() => setShowNearbyPlaces(!showNearbyPlaces)}>
+              <Layers className="w-4 h-4" />
+            </Button>
+          </div>
+
           <Button
-            variant="secondary"
+            variant="neon"
             size="icon"
-            className="glass"
-            onClick={() => setZoom((z) => Math.min(19, z + 1))} // NOTE: clamp zoom in
+            className="absolute bottom-4 right-4 h-12 w-12 rounded-full"
+            onClick={() => {
+              if (!position) return;
+              setMapCenter({ lat: position.lat, lng: position.lng });
+              setPanResetKey((v) => v + 1);
+            }}
           >
-            <ZoomIn className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="secondary"
-            size="icon"
-            className="glass"
-            onClick={() => setZoom((z) => Math.max(3, z - 1))} // NOTE: clamp zoom out
-          >
-            <ZoomOut className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="secondary"
-            className="glass px-3"
-            onClick={handleAiZonePick}
-            disabled={isSelectingZone || zones.length === 0}
-          >
-            <Sparkles className="w-4 h-4 mr-1" />
-            {isSelectingZone ? 'Selecting...' : 'AI Zone'}
-          </Button>
-          <Button 
-            variant={showNearbyPlaces ? "neon" : "secondary"}
-            size="icon" 
-            className="glass"
-            onClick={() => setShowNearbyPlaces(!showNearbyPlaces)}
-          >
-            <Layers className="w-4 h-4" />
+            <Navigation className="w-5 h-5" />
           </Button>
         </div>
 
-        {/* Current Location Button */}
-        <Button 
-          variant="neon" 
-          size="icon" 
-          className="absolute bottom-24 right-4 w-12 h-12 rounded-full"
-          onClick={() => {
-            if (!position) return;
-            setMapCenter({ lat: position.lat, lng: position.lng }); // NOTE: recenter map to current GPS position
-            setPanResetKey((v) => v + 1); // NOTE: reset drag offset so recenter is exact
-          }}
-        >
-          <Navigation className="w-5 h-5" />
-        </Button>
-
-        {/* Layer Selector */}
-        <div className="absolute top-4 right-16 glass rounded-lg p-2 space-y-2">
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Layer</p>
-          <div className="flex flex-col gap-2">
-            <Button
-              variant={tileLayer === 'standard' ? 'neon' : 'secondary'}
-              size="sm"
-              onClick={() => setTileLayer('standard')} // NOTE: standard OSM tiles
-            >
-              Standard
-            </Button>
-            <Button
-              variant={tileLayer === 'terrain' ? 'neon' : 'secondary'}
-              size="sm"
-              onClick={() => setTileLayer('terrain')} // NOTE: terrain/topographic tiles
-            >
-              Terrain
-            </Button>
-            <Button
-              variant={tileLayer === 'hot' ? 'neon' : 'secondary'}
-              size="sm"
-              onClick={() => setTileLayer('hot')} // NOTE: HOT style for contrast
-            >
-              Places
-            </Button>
+        <aside className="glass rounded-2xl border border-primary/20 p-4 md:p-5 overflow-y-auto">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Map Console</h2>
+            <MapPinned className="h-4 w-4 text-primary" />
           </div>
-        </div>
 
-        {/* Legend */}
-        <div className="absolute top-4 left-4 glass rounded-lg p-3 space-y-2">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Legend</p>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-primary" />
-            <span className="text-xs">Your Zones</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-destructive" />
-            <span className="text-xs">Enemy Zones</span>
-          </div>
-          {showNearbyPlaces && (
-            <>
-              <div className="flex items-center gap-2">
-                <span className="text-sm">💪</span>
-                <span className="text-xs">Gyms</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm">🌳</span>
-                <span className="text-xs">Parks</span>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Selected Zone Panel */}
-        {selectedZoneData && (
-          <div className="absolute bottom-20 left-4 right-4 glass rounded-xl p-4 animate-slide-up">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <p className="font-display font-bold">{selectedZoneData.name}</p>
-                <p className="text-sm text-muted-foreground">
-                  Owned by{' '}
-                  <span className={selectedZoneData.isOwned ? 'text-primary' : 'text-destructive'}>
-                    {selectedZoneData.ownerName}
-                  </span>
-                </p>
-              </div>
-              <div className="level-badge bg-primary text-primary-foreground px-2 py-1 rounded">
-                LVL {selectedZoneData.level}
-              </div>
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">Map style</p>
+            <div className="grid grid-cols-3 gap-2">
+              <Button variant={tileLayer === 'standard' ? 'neon' : 'secondary'} size="sm" onClick={() => setTileLayer('standard')}>Light</Button>
+              <Button variant={tileLayer === 'terrain' ? 'neon' : 'secondary'} size="sm" onClick={() => setTileLayer('terrain')}>Terrain</Button>
+              <Button variant={tileLayer === 'dark' ? 'neon' : 'secondary'} size="sm" onClick={() => setTileLayer('dark')}>Dark</Button>
             </div>
-            
-            {zoneReason && <p className="text-xs text-primary mb-2">🤖 {zoneReason}</p>}
-
-            {!selectedZoneData.isOwned && (
-              <Button variant="danger" className="w-full" onClick={handleChallengeZone}>
-                ⚔️ Challenge Zone (20 min activity)
-              </Button>
-            )}
-            
-            {selectedZoneData.isOwned && (
-              <div className="text-sm text-muted-foreground text-center">
-                🛡️ This zone is under your control
-              </div>
-            )}
-            
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="w-full mt-2"
-              onClick={() => setSelectedZone(null)}
-            >
-              Close
-            </Button>
           </div>
-        )}
+
+          <Button variant="secondary" className="mt-4 w-full" onClick={handleAiZonePick} disabled={isSelectingZone || zones.length === 0}>
+            <Sparkles className="mr-2 h-4 w-4" />
+            {isSelectingZone ? 'Selecting best zone...' : 'AI Zone Pick'}
+          </Button>
+
+          <div className="mt-5 space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Zones</p>
+            {zones.map((zone) => (
+              <button
+                key={zone.id}
+                className={`w-full rounded-lg border p-3 text-left transition ${selectedZone === zone.id ? 'border-primary bg-primary/10' : 'border-border bg-card/40 hover:border-primary/40'}`}
+                onClick={() => setSelectedZone(zone.id)}
+              >
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium">{zone.name}</p>
+                  <span className="text-xs text-muted-foreground">LVL {zone.level}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Owner: <span className={zone.isOwned ? 'text-primary' : 'text-destructive'}>{zone.ownerName}</span>
+                </p>
+              </button>
+            ))}
+          </div>
+
+          {selectedZoneData && (
+            <div className="mt-5 rounded-xl border border-primary/40 bg-black/20 p-4">
+              <p className="font-display font-bold">{selectedZoneData.name}</p>
+              {zoneReason && <p className="mt-2 text-xs text-primary">🤖 {zoneReason}</p>}
+              {!selectedZoneData.isOwned ? (
+                <Button variant="danger" className="mt-3 w-full" onClick={handleChallengeZone}>
+                  ⚔️ Challenge Zone
+                </Button>
+              ) : (
+                <p className="mt-3 text-sm text-muted-foreground">🛡️ This zone is under your control.</p>
+              )}
+            </div>
+          )}
+        </aside>
       </div>
     </AppLayout>
   );
