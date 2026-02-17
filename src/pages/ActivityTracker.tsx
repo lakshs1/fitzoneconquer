@@ -217,6 +217,15 @@ export default function ActivityTracker() {
                   </div>
                 )}
               </div>
+
+              <Button
+                variant="secondary"
+                size="icon"
+                className="map-control absolute bottom-4 right-4 h-11 w-11 rounded-full bg-background/90"
+                onClick={() => setPanResetKey((v) => v + 1)}
+              >
+                <Crosshair className="h-4 w-4" />
+              </Button>
             </div>
           )}
         </div>
