@@ -239,20 +239,8 @@ export function GoogleMap({
             <polygon
               key={zone.id}
               points={polygon}
-              fill={
-                zone.status === 'mine'
-                  ? 'rgba(34,197,94,0.30)'
-                  : zone.status === 'enemy'
-                    ? 'rgba(239,68,68,0.28)'
-                    : 'rgba(250,204,21,0.25)'
-              }
-              stroke={
-                zone.status === 'mine'
-                  ? 'rgb(34,197,94)'
-                  : zone.status === 'enemy'
-                    ? 'rgb(239,68,68)'
-                    : 'rgb(250,204,21)'
-              }
+              fill={zone.isOwned ? 'rgba(250,204,21,0.3)' : 'rgba(239,68,68,0.3)'}
+              stroke={zone.isOwned ? 'rgb(250,204,21)' : 'rgb(239,68,68)'}
               strokeWidth={2.5}
               className="pointer-events-auto cursor-pointer"
               onClick={() => onZoneClick?.(zone.id)}

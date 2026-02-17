@@ -189,13 +189,13 @@ export default function MapView() {
     tileLayer === 'terrain'
       ? 'https://a.tile.opentopomap.org'
       : tileLayer === 'dark'
-        ? 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}'
-        : 'https://mt1.google.com/vt/lyrs=r&x={x}&y={y}&z={z}';
+        ? 'https://a.basemaps.cartocdn.com/dark_all'
+        : 'https://a.basemaps.cartocdn.com/light_all';
 
   return (
     <AppLayout wide>
-      <div className="flex h-[calc(100vh-5rem)] flex-col gap-3 p-2 md:p-3 lg:grid lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="relative min-h-[60vh] overflow-hidden rounded-2xl border border-black/20 bg-card shadow-xl">
+      <div className="grid h-[calc(100vh-5rem)] gap-4 p-2 md:p-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="relative overflow-hidden rounded-2xl border border-primary/30 bg-card shadow-2xl shadow-black/40">
           <GoogleMap
             center={mapCenter}
             zoom={zoom}
@@ -203,82 +203,89 @@ export default function MapView() {
             panResetKey={panResetKey}
             userPosition={position}
             zones={zones}
-            nearbyPlaces={places}
+            nearbyPlaces={nearbyPlaces}
             showNearbyPlaces={showNearbyPlaces}
             onZoneClick={setSelectedZone}
           />
 
-          <div className="map-control absolute right-3 top-3 flex flex-col gap-2">
-            <Button variant="secondary" size="icon" className="h-10 w-10 rounded-xl bg-background/90" onClick={() => setZoom((z) => Math.min(19, z + 1))}>
-              <ZoomIn className="h-4 w-4" />
+          <div className="absolute top-4 right-4 flex flex-col gap-2">
+            <Button variant="secondary" size="icon" className="glass" onClick={() => setZoom((z) => Math.min(19, z + 1))}>
+              <ZoomIn className="w-4 h-4" />
             </Button>
-            <Button variant="secondary" size="icon" className="h-10 w-10 rounded-xl bg-background/90" onClick={() => setZoom((z) => Math.max(3, z - 1))}>
-              <ZoomOut className="h-4 w-4" />
+            <Button variant="secondary" size="icon" className="glass" onClick={() => setZoom((z) => Math.max(3, z - 1))}>
+              <ZoomOut className="w-4 h-4" />
             </Button>
-            <Button variant={showNearbyPlaces ? 'neon' : 'secondary'} size="icon" className="h-10 w-10 rounded-xl bg-background/90" onClick={() => setShowNearbyPlaces((v) => !v)}>
-              <Layers className="h-4 w-4" />
+            <Button variant={showNearbyPlaces ? 'neon' : 'secondary'} size="icon" className="glass" onClick={() => setShowNearbyPlaces(!showNearbyPlaces)}>
+              <Layers className="w-4 h-4" />
             </Button>
           </div>
 
           <Button
-            variant="secondary"
+            variant="neon"
             size="icon"
-            className="map-control absolute bottom-3 right-3 h-11 w-11 rounded-full bg-background/95"
+            className="absolute bottom-4 right-4 h-12 w-12 rounded-full"
             onClick={() => {
               if (!position) return;
               setMapCenter({ lat: position.lat, lng: position.lng });
               setPanResetKey((v) => v + 1);
             }}
           >
-            <Navigation className="h-5 w-5" />
+            <Navigation className="w-5 h-5" />
           </Button>
         </div>
 
-        <aside className="glass max-h-[34vh] overflow-y-auto rounded-2xl border border-primary/20 p-3 lg:max-h-none lg:p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Map Console</h2>
+        <aside className="glass rounded-2xl border border-primary/20 p-4 md:p-5 overflow-y-auto">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Map Console</h2>
             <MapPinned className="h-4 w-4 text-primary" />
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
-            <Button variant={tileLayer === 'standard' ? 'neon' : 'secondary'} size="sm" onClick={() => setTileLayer('standard')}>Default</Button>
-            <Button variant={tileLayer === 'terrain' ? 'neon' : 'secondary'} size="sm" onClick={() => setTileLayer('terrain')}>Terrain</Button>
-            <Button variant={tileLayer === 'dark' ? 'neon' : 'secondary'} size="sm" onClick={() => setTileLayer('dark')}>Street</Button>
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">Map style</p>
+            <div className="grid grid-cols-3 gap-2">
+              <Button variant={tileLayer === 'standard' ? 'neon' : 'secondary'} size="sm" onClick={() => setTileLayer('standard')}>Light</Button>
+              <Button variant={tileLayer === 'terrain' ? 'neon' : 'secondary'} size="sm" onClick={() => setTileLayer('terrain')}>Terrain</Button>
+              <Button variant={tileLayer === 'dark' ? 'neon' : 'secondary'} size="sm" onClick={() => setTileLayer('dark')}>Dark</Button>
+            </div>
           </div>
 
-          <Button variant="secondary" className="mt-3 w-full" onClick={handleAiZonePick} disabled={isSelectingZone || zones.length === 0}>
+          <Button variant="secondary" className="mt-4 w-full" onClick={handleAiZonePick} disabled={isSelectingZone || zones.length === 0}>
             <Sparkles className="mr-2 h-4 w-4" />
-            {isSelectingZone ? 'Selecting zone...' : 'AI Zone Pick'}
+            {isSelectingZone ? 'Selecting best zone...' : 'AI Zone Pick'}
           </Button>
 
+          <div className="mt-5 space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Zones</p>
+            {zones.map((zone) => (
+              <button
+                key={zone.id}
+                className={`w-full rounded-lg border p-3 text-left transition ${selectedZone === zone.id ? 'border-primary bg-primary/10' : 'border-border bg-card/40 hover:border-primary/40'}`}
+                onClick={() => setSelectedZone(zone.id)}
+              >
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium">{zone.name}</p>
+                  <span className="text-xs text-muted-foreground">LVL {zone.level}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Owner: <span className={zone.isOwned ? 'text-primary' : 'text-destructive'}>{zone.ownerName}</span>
+                </p>
+              </button>
+            ))}
+          </div>
+
           {selectedZoneData && (
-            <div className="mt-3 rounded-lg border border-border bg-black/10 p-3">
-              <p className="font-display text-sm font-bold">{selectedZoneData.name}</p>
-              <p className="text-xs text-muted-foreground">
-                {selectedZoneData.status === 'mine'
-                  ? '🟢 Your zone'
-                  : selectedZoneData.status === 'enemy'
-                    ? `🔴 Enemy zone • ${selectedZoneData.ownerName || 'Captured'}`
-                    : '🟡 Vacant zone'}
-              </p>
+            <div className="mt-5 rounded-xl border border-primary/40 bg-black/20 p-4">
+              <p className="font-display font-bold">{selectedZoneData.name}</p>
               {zoneReason && <p className="mt-2 text-xs text-primary">🤖 {zoneReason}</p>}
-              {selectedZoneData.status !== 'mine' && (
-                <Button variant="danger" className="mt-2 w-full" onClick={handleChallengeZone}>
-                  ⚔️ Start Capture Activity
+              {!selectedZoneData.isOwned ? (
+                <Button variant="danger" className="mt-3 w-full" onClick={handleChallengeZone}>
+                  ⚔️ Challenge Zone
                 </Button>
+              ) : (
+                <p className="mt-3 text-sm text-muted-foreground">🛡️ This zone is under your control.</p>
               )}
             </div>
           )}
-
-          <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-            <span>🟢 Mine</span>
-            <span>🟡 Vacant</span>
-            <span>🔴 Enemy</span>
-          </div>
-
-          <p className="mt-3 text-[11px] text-muted-foreground">
-            Places are fetched from OpenStreetMap live data (park/gym/path tags) instead of mock tags.
-          </p>
         </aside>
       </div>
     </AppLayout>
