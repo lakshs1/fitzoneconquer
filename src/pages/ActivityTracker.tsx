@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play, Pause, Square, MapPin, Flame, Zap, Navigation } from 'lucide-react';
+import { Play, Pause, Square, MapPin, Flame, Zap, Navigation, Crosshair } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { useActivityTracking } from '@/hooks/useActivityTracking';
@@ -26,6 +26,7 @@ export default function ActivityTracker() {
   } = useActivityTracking();
 
   const [showMap, setShowMap] = useState(false);
+  const [panResetKey, setPanResetKey] = useState(0);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -56,7 +57,7 @@ export default function ActivityTracker() {
     const result = await stopActivity();
     if (result) {
       toast.success(
-        `Great workout! 💪 ${(result.distance / 1000).toFixed(2)}km, ${result.loops} loops, +${result.xpEarned} XP!`
+        `Great workout! 💪 ${(result.distance / 1000).toFixed(2)}km, ${result.loops} loops, +${result.xpEarned} XP!${result.createdZone ? ' Zone captured from your route.' : ''}`
       );
     }
   };
@@ -100,6 +101,8 @@ export default function ActivityTracker() {
             // Live Map View
             <div className="h-full relative">
               <GoogleMap
+                center={position || undefined}
+                panResetKey={panResetKey}
                 userPosition={position}
                 activityPath={path}
                 isTracking={isTracking}
@@ -119,6 +122,15 @@ export default function ActivityTracker() {
                   <p className="text-xs text-muted-foreground">Loops</p>
                 </div>
               </div>
+
+              <Button
+                variant="secondary"
+                size="icon"
+                className="map-control absolute bottom-4 right-4 h-11 w-11 rounded-full bg-background/90"
+                onClick={() => setPanResetKey((v) => v + 1)}
+              >
+                <Crosshair className="h-4 w-4" />
+              </Button>
             </div>
           ) : (
             // Stats View
@@ -202,6 +214,15 @@ export default function ActivityTracker() {
                   </div>
                 )}
               </div>
+
+              <Button
+                variant="secondary"
+                size="icon"
+                className="map-control absolute bottom-4 right-4 h-11 w-11 rounded-full bg-background/90"
+                onClick={() => setPanResetKey((v) => v + 1)}
+              >
+                <Crosshair className="h-4 w-4" />
+              </Button>
             </div>
           )}
         </div>
