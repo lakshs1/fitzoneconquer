@@ -272,7 +272,7 @@
 
   /* Wider container for map views */
   .app-container-wide {
-    @apply w-full max-w-2xl mx-auto;
+    @apply w-full max-w-7xl mx-auto;
   }
 
   /* Full width container for special pages */

@@ -19,8 +19,8 @@ interface GoogleMapProps {
     id: string;
     coordinates: Array<{ lat: number; lng: number }>;
     center: { lat: number; lng: number };
-    isOwned: boolean;
-    ownerName: string;
+    status: 'vacant' | 'mine' | 'enemy';
+    ownerName?: string | null;
     level: number;
   }>;
   nearbyPlaces?: Array<{
@@ -167,7 +167,7 @@ export function GoogleMap({
   const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return; // NOTE: ignore non-primary buttons for drag
     const target = event.target as Element;
-    if (target.closest('button, polygon')) return; // NOTE: don't start drag when clicking a place marker or zone
+    if (target.closest('button, polygon, .map-control')) return; // NOTE: don't start drag when clicking a place marker or zone
 
     dragRef.current = {
       startX: event.clientX,
@@ -198,7 +198,7 @@ export function GoogleMap({
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-full overflow-hidden bg-card"
+      className="relative h-full w-full overflow-hidden bg-card"
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -213,7 +213,7 @@ export function GoogleMap({
           key={tile.key}
           src={tile.src}
           alt="OpenStreetMap tile"
-          className="absolute max-w-none pointer-events-none select-none"
+          className="absolute max-w-none pointer-events-none select-none saturate-[1.08] contrast-105"
           style={{
             left: tile.left,
             top: tile.top,
@@ -224,7 +224,9 @@ export function GoogleMap({
         />
       ))}
 
-      <svg className="absolute inset-0 w-full h-full pointer-events-none">
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background/10 via-transparent to-background/30" />
+
+      <svg className="absolute inset-0 h-full w-full pointer-events-none">
         {zones.map((zone) => {
           const polygon = zone.coordinates
             .map((c) => {
@@ -237,9 +239,21 @@ export function GoogleMap({
             <polygon
               key={zone.id}
               points={polygon}
-              fill={zone.isOwned ? 'rgba(250,204,21,0.3)' : 'rgba(239,68,68,0.3)'}
-              stroke={zone.isOwned ? 'rgb(250,204,21)' : 'rgb(239,68,68)'}
-              strokeWidth={2}
+              fill={
+                zone.status === 'mine'
+                  ? 'rgba(34,197,94,0.30)'
+                  : zone.status === 'enemy'
+                    ? 'rgba(239,68,68,0.28)'
+                    : 'rgba(250,204,21,0.25)'
+              }
+              stroke={
+                zone.status === 'mine'
+                  ? 'rgb(34,197,94)'
+                  : zone.status === 'enemy'
+                    ? 'rgb(239,68,68)'
+                    : 'rgb(250,204,21)'
+              }
+              strokeWidth={2.5}
               className="pointer-events-auto cursor-pointer"
               onClick={() => onZoneClick?.(zone.id)}
             />
@@ -271,7 +285,7 @@ export function GoogleMap({
         return (
           <button
             key={place.id}
-            className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full bg-card/90 border px-2 py-1 text-xs"
+            className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary/30 bg-card/90 px-2 py-1 text-xs shadow-lg backdrop-blur"
             style={{ left: pos.x, top: pos.y }}
             onClick={() => onPlaceClick?.(place.id)}
             title={`${place.name} • ${(place.distanceMeters / 1000).toFixed(2)}km`}
@@ -283,7 +297,7 @@ export function GoogleMap({
 
       {userPosition && (
         <div
-          className="absolute -translate-x-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-primary border-4 border-primary/30 animate-pulse"
+          className="absolute h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-primary/30 bg-primary animate-pulse shadow-[0_0_20px_rgba(250,204,21,0.7)]"
           style={{
             left: toScreen(userPosition).x,
             top: toScreen(userPosition).y,
@@ -291,8 +305,8 @@ export function GoogleMap({
         />
       )}
 
-      <div className="absolute bottom-3 left-3 right-3 rounded bg-card/90 p-2 text-xs text-muted-foreground">
-        © OpenStreetMap contributors (ODbL) • Tile host: {tileBaseUrl || TILE_BASE_URL} • Zoom {zoom}
+      <div className="absolute bottom-3 left-3 right-3 rounded-lg border border-white/10 bg-card/85 p-2 text-xs text-muted-foreground backdrop-blur">
+        © OpenStreetMap contributors (ODbL) • Refined raster style • Zoom {zoom}
       </div>
     </div>
   );

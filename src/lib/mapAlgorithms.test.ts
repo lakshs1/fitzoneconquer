@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { haversineDistanceMeters, latLngToWorldPoint, rankNearbyPlaces, smoothGpsPath } from './mapAlgorithms';
+import { deriveZoneFromPath, haversineDistanceMeters, latLngToWorldPoint, rankNearbyPlaces, smoothGpsPath } from './mapAlgorithms';
 
 describe('mapAlgorithms', () => {
   it('projects coordinates to finite world points', () => {
@@ -37,5 +37,29 @@ describe('mapAlgorithms', () => {
 
     expect(ranked[0].id).toBe('near');
     expect(ranked[0].distanceMeters).toBeLessThan(ranked[1].distanceMeters);
+  });
+
+  it('builds polygon zone when path closes into a loop', () => {
+    const zone = deriveZoneFromPath([
+      { lat: 40.7128, lng: -74.006, timestamp: 1 },
+      { lat: 40.7134, lng: -74.0054, timestamp: 2 },
+      { lat: 40.7129, lng: -74.0049, timestamp: 3 },
+      { lat: 40.7127, lng: -74.0058, timestamp: 4 },
+    ]);
+
+    expect(zone?.closedLoop).toBe(true);
+    expect(zone?.kind).toBe('polygon');
+  });
+
+  it('builds start-centered route zone when no loop is formed', () => {
+    const zone = deriveZoneFromPath([
+      { lat: 40.7128, lng: -74.006, timestamp: 1 },
+      { lat: 40.7132, lng: -74.0057, timestamp: 2 },
+      { lat: 40.7136, lng: -74.0054, timestamp: 3 },
+    ]);
+
+    expect(zone?.closedLoop).toBe(false);
+    expect(zone?.kind).toBe('route');
+    expect(zone?.coordinates.length).toBeGreaterThan(8);
   });
 });

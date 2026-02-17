@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { useGeolocation, Coordinates } from './useGeolocation';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { deriveZoneFromPath } from '@/lib/mapAlgorithms';
 
 interface ActivityState {
   isTracking: boolean;
@@ -85,7 +86,7 @@ function calculateCalories(
 }
 
 export function useActivityTracking() {
-  const { user, stats, updateStats } = useAuth();
+  const { user, profile, stats, updateStats } = useAuth();
   const { position, error: geoError, getCurrentPosition } = useGeolocation();
   
   const [state, setState] = useState<ActivityState>({
@@ -190,47 +191,36 @@ export function useActivityTracking() {
   }, [state.isTracking, state.isPaused]);
 
   const startActivity = useCallback(async (type: 'run' | 'walk' | 'cycle') => {
+    let currentPos: Coordinates | null = position ?? null;
+
     try {
-      const currentPos = await getCurrentPosition().catch((error) => {
-        if (position) {
-          return position; // NOTE: fall back to watchPosition data if getCurrentPosition fails
-        }
-        throw error;
-      });
-      
-      setState({
-        isTracking: true,
-        isPaused: false,
-        activityType: type,
-        path: [currentPos],
-        distance: 0,
-        duration: 0,
-        calories: 0,
-        loops: 0,
-        startTime: new Date(),
-        currentSpeed: 0,
-      });
-      
-      lastPositionRef.current = currentPos;
-      startPositionRef.current = currentPos;
-      loopCheckDistanceRef.current = 0;
-      
-      return { success: true, startPosition: currentPos };
-    } catch (error) {
-      if (error && typeof error === 'object' && 'code' in error) {
-        const geoError = error as GeolocationPositionError;
-        const message =
-          geoError.code === geoError.PERMISSION_DENIED
-            ? 'Location permission denied. Enable GPS access.'
-            : geoError.code === geoError.POSITION_UNAVAILABLE
-              ? 'Location unavailable. Check GPS signal.'
-              : geoError.code === geoError.TIMEOUT
-                ? 'Location request timed out. Try moving to an open area.'
-                : 'Failed to get GPS position.';
-        return { success: false, error: message }; // NOTE: surface real geolocation error for clearer UX
-      }
-      return { success: false, error: 'Failed to get GPS position.' };
+      currentPos = await getCurrentPosition().catch(() => position ?? null);
+    } catch {
+      currentPos = position ?? null;
     }
+
+    setState({
+      isTracking: true,
+      isPaused: false,
+      activityType: type,
+      path: currentPos ? [currentPos] : [],
+      distance: 0,
+      duration: 0,
+      calories: 0,
+      loops: 0,
+      startTime: new Date(),
+      currentSpeed: 0,
+    });
+
+    lastPositionRef.current = currentPos;
+    startPositionRef.current = currentPos;
+    loopCheckDistanceRef.current = 0;
+
+    return {
+      success: true,
+      startPosition: currentPos,
+      warning: currentPos ? undefined : 'GPS not locked yet. Tracking started and will capture as soon as location is acquired.',
+    };
   }, [getCurrentPosition, position]);
 
   const pauseActivity = useCallback(() => {
@@ -283,13 +273,41 @@ export function useActivityTracking() {
     if (error) {
       console.error('Failed to save activity:', error);
     }
-    
+
+
+    const zoneDraft = deriveZoneFromPath(state.path);
+    let createdZone = null;
+
+    if (zoneDraft && startPositionRef.current) {
+      const zoneName = zoneDraft.closedLoop ? `Loop Zone ${new Date().toLocaleDateString()}` : `Route Zone ${new Date().toLocaleDateString()}`;
+      const { data: zoneData, error: zoneError } = await supabase
+        .from('zones')
+        .insert({
+          owner_id: user.id,
+          owner_name: profile?.name || user.email || 'You',
+          name: zoneName,
+          coordinates: zoneDraft.coordinates,
+          center: zoneDraft.center,
+          level: 1,
+          captured_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (zoneError) {
+        console.error('Failed to save zone:', zoneError);
+      } else {
+        createdZone = zoneData;
+      }
+    }
+
     // Update user stats
     if (stats) {
       await updateStats({
         total_distance: (stats.total_distance || 0) + state.distance,
         total_calories: (stats.total_calories || 0) + state.calories,
         total_activities: (stats.total_activities || 0) + 1,
+        zones_owned: (stats.zones_owned || 0) + (createdZone ? 1 : 0),
         xp: (stats.xp || 0) + xpEarned,
         level: Math.floor(((stats.xp || 0) + xpEarned) / 1000) + 1,
         last_activity_date: new Date().toISOString().split('T')[0],
@@ -304,6 +322,7 @@ export function useActivityTracking() {
       loops: state.loops,
       xpEarned,
       path: state.path,
+      createdZone,
     };
     
     // Reset state
@@ -325,7 +344,7 @@ export function useActivityTracking() {
     loopCheckDistanceRef.current = 0;
     
     return result;
-  }, [user, state, stats, updateStats]);
+  }, [user, state, stats, updateStats, profile]);
 
   return {
     ...state,

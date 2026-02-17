@@ -20,13 +20,15 @@ export interface RankedPlace {
   distanceMeters: number;
 }
 
-const TILE_SIZE = 256;
+export interface ZoneDraft {
+  kind: 'polygon' | 'route';
+  coordinates: LatLng[];
+  center: LatLng;
+  closedLoop: boolean;
+  suggestedRadiusMeters: number;
+}
 
-/**
- * MAP ALGORITHMS
- * ==============
- * OpenStreetMap-compatible math utilities
- */
+const TILE_SIZE = 256;
 
 export function latLngToWorldPoint(
   point: LatLng,
@@ -76,6 +78,70 @@ export function haversineDistanceMeters(
       Math.sin(dLng / 2) ** 2;
 
   return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+function offsetPoint(origin: LatLng, northMeters: number, eastMeters: number): LatLng {
+  const lat = origin.lat + northMeters / 111_320;
+  const lng =
+    origin.lng +
+    eastMeters / (111_320 * Math.max(0.2, Math.cos((origin.lat * Math.PI) / 180)));
+  return { lat, lng };
+}
+
+export function circlePolygon(center: LatLng, radiusMeters: number, points = 24): LatLng[] {
+  const safeRadius = Math.max(8, radiusMeters);
+  return Array.from({ length: points }, (_, index) => {
+    const angle = (index / points) * Math.PI * 2;
+    const north = Math.cos(angle) * safeRadius;
+    const east = Math.sin(angle) * safeRadius;
+    return offsetPoint(center, north, east);
+  });
+}
+
+function centerOfPoints(points: LatLng[]): LatLng {
+  const total = points.reduce(
+    (acc, point) => ({ lat: acc.lat + point.lat, lng: acc.lng + point.lng }),
+    { lat: 0, lng: 0 }
+  );
+
+  return {
+    lat: total.lat / points.length,
+    lng: total.lng / points.length,
+  };
+}
+
+export function deriveZoneFromPath(path: Coordinates[]): ZoneDraft | null {
+  if (path.length < 2) return null;
+
+  const totalDistance = path.slice(1).reduce((sum, point, index) => {
+    return sum + haversineDistanceMeters(path[index], point);
+  }, 0);
+
+  if (totalDistance < 40) return null;
+
+  const start = path[0];
+  const end = path[path.length - 1];
+  const loopGap = haversineDistanceMeters(start, end);
+  const formsClosedShape = path.length >= 4 && loopGap <= Math.max(35, totalDistance * 0.12);
+
+  if (formsClosedShape) {
+    return {
+      kind: 'polygon',
+      coordinates: path.map((point) => ({ lat: point.lat, lng: point.lng })),
+      center: centerOfPoints(path),
+      closedLoop: true,
+      suggestedRadiusMeters: Math.max(8, totalDistance / 8),
+    };
+  }
+
+  const radius = Math.max(12, totalDistance / 8);
+  return {
+    kind: 'route',
+    coordinates: circlePolygon(start, radius, 24),
+    center: { lat: start.lat, lng: start.lng },
+    closedLoop: false,
+    suggestedRadiusMeters: radius,
+  };
 }
 
 export function smoothGpsPath(
@@ -151,6 +217,13 @@ export function tileUrl(
 ): string {
   const tileCount = 2 ** zoom;
   const wrappedX = ((x % tileCount) + tileCount) % tileCount;
+
+  if (baseUrl.includes('{x}') || baseUrl.includes('{y}') || baseUrl.includes('{z}')) {
+    return baseUrl
+      .replace('{x}', String(wrappedX))
+      .replace('{y}', String(y))
+      .replace('{z}', String(zoom));
+  }
 
   return `${baseUrl}/${zoom}/${wrappedX}/${y}.png`;
 }
