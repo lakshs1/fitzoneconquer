@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Navigation, Layers, ZoomIn, ZoomOut, Sparkles, MapPinned } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -6,6 +6,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { GoogleMap } from '@/components/map/GoogleMap';
 import { useAuth } from '@/contexts/AuthContext';
 import { useGeolocation } from '@/hooks/useGeolocation';
+import { useZones } from '@/hooks/useUserData';
 import { selectBestZone } from '@/services/zoneDecision';
 
 function offsetPoint(origin: { lat: number; lng: number }, northMeters: number, eastMeters: number) {
@@ -25,9 +26,17 @@ function squareAround(center: { lat: number; lng: number }, halfSizeMeters: numb
   ];
 }
 
+interface RealPlace {
+  id: string;
+  name: string;
+  type: 'gym' | 'park' | 'trail';
+  location: { lat: number; lng: number };
+}
+
 export default function MapView() {
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { user } = useAuth();
+  const { zones: dbZones } = useZones();
   const { position } = useGeolocation();
   const [selectedZone, setSelectedZone] = useState<string | null>(null);
   const [showNearbyPlaces, setShowNearbyPlaces] = useState(false);
@@ -37,39 +46,93 @@ export default function MapView() {
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | undefined>(undefined);
   const [zoneReason, setZoneReason] = useState<string | null>(null);
   const [isSelectingZone, setIsSelectingZone] = useState(false);
+  const [places, setPlaces] = useState<RealPlace[]>([]);
 
-  const zones = useMemo(() => {
+  useEffect(() => {
+    const anchor = position ?? mapCenter;
+    if (!anchor) return;
+
+    const controller = new AbortController();
+    const query = `[out:json][timeout:20];(node["leisure"="park"](around:3500,${anchor.lat},${anchor.lng});node["leisure"="fitness_centre"](around:3500,${anchor.lat},${anchor.lng});node["amenity"="gym"](around:3500,${anchor.lat},${anchor.lng});way["highway"="path"](around:3500,${anchor.lat},${anchor.lng}););out center 25;`;
+
+    fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      body: query,
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Failed places lookup');
+        const data = await response.json();
+        const output: RealPlace[] = (data.elements || [])
+          .map((element: any) => {
+            const lat = element.lat ?? element.center?.lat;
+            const lng = element.lon ?? element.center?.lon;
+            if (typeof lat !== 'number' || typeof lng !== 'number') return null;
+            const tags = element.tags || {};
+            const name = tags.name || tags['name:en'] || 'Unnamed place';
+            let type: RealPlace['type'] = 'trail';
+            if (tags.leisure === 'park') type = 'park';
+            if (tags.amenity === 'gym' || tags.leisure === 'fitness_centre') type = 'gym';
+            return {
+              id: `${element.type}-${element.id}`,
+              name,
+              type,
+              location: { lat, lng },
+            };
+          })
+          .filter(Boolean)
+          .slice(0, 30);
+        setPlaces(output);
+      })
+      .catch(() => {
+        setPlaces([]);
+      });
+
+    return () => controller.abort();
+  }, [position, mapCenter]);
+
+  const fallbackVacantZones = useMemo(() => {
     const anchor = position ?? { lat: 40.7128, lng: -74.006 };
-    const templates = [
-      { id: 'zone-n', name: 'North Park Loop', type: 'park' as const, north: 320, east: 120, size: 120, isOwned: false, level: 1 },
-      { id: 'zone-w', name: 'West Tempo Trail', type: 'trail' as const, north: 140, east: -420, size: 140, isOwned: false, level: 2 },
-      { id: 'zone-s', name: 'South Recovery Greenway', type: 'greenway' as const, north: -360, east: 80, size: 130, isOwned: true, level: 2 },
-      { id: 'zone-e', name: 'East Sprint Runway', type: 'runway' as const, north: -40, east: 520, size: 110, isOwned: false, level: 3 },
-    ];
-
-    return templates.map((zone) => {
+    return [
+      { id: 'vacant-n', name: 'North Open Block', north: 320, east: 120, size: 120, level: 1 },
+      { id: 'vacant-w', name: 'West Open Trail', north: 140, east: -420, size: 140, level: 2 },
+      { id: 'vacant-e', name: 'East Open Runway', north: -40, east: 520, size: 110, level: 3 },
+    ].map((zone) => {
       const center = offsetPoint(anchor, zone.north, zone.east);
       return {
         id: zone.id,
         name: zone.name,
-        type: zone.type,
-        coordinates: squareAround(center, zone.size),
         center,
-        isOwned: zone.isOwned,
-        ownerName: zone.isOwned ? profile?.name || 'You' : 'Rival',
+        coordinates: squareAround(center, zone.size),
+        status: 'vacant' as const,
+        ownerName: null,
         level: zone.level,
       };
     });
-  }, [position, profile?.name]);
-
-  const nearbyPlaces = useMemo(() => {
-    const anchor = position ?? { lat: 40.7128, lng: -74.006 };
-    return [
-      { id: 'place-gym', name: 'Nearby Power Gym', type: 'gym' as const, location: offsetPoint(anchor, 180, -90) },
-      { id: 'place-park', name: 'Local City Park', type: 'park' as const, location: offsetPoint(anchor, -280, 260) },
-      { id: 'place-trail', name: 'Riverside Trail', type: 'trail' as const, location: offsetPoint(anchor, 410, 310) },
-    ];
   }, [position]);
+
+  const zones = useMemo(() => {
+    const mappedDb = dbZones.map((zone) => {
+      const ownerId = zone.owner_id;
+      const status: 'vacant' | 'mine' | 'enemy' = !ownerId
+        ? 'vacant'
+        : ownerId === user?.id
+          ? 'mine'
+          : 'enemy';
+
+      return {
+        id: zone.id,
+        name: zone.name,
+        center: zone.center as { lat: number; lng: number },
+        coordinates: (zone.coordinates as Array<{ lat: number; lng: number }>) || [],
+        status,
+        ownerName: zone.owner_name,
+        level: zone.level || 1,
+      };
+    });
+
+    return mappedDb.length ? mappedDb : fallbackVacantZones;
+  }, [dbZones, user?.id, fallbackVacantZones]);
 
   const selectedZoneData = zones.find((z) => z.id === selectedZone);
 
@@ -89,13 +152,14 @@ export default function MapView() {
     const currentLocation = position ?? mapCenter ?? zones[0]?.center;
     if (!currentLocation || zones.length === 0) return;
     setIsSelectingZone(true);
+
     const result = await selectBestZone(
       zones.map((zone) => ({
         id: zone.id,
         name: zone.name,
-        type: zone.type,
+        type: zone.status === 'vacant' ? 'park' : 'trail',
         center: zone.center,
-        isOwned: zone.isOwned,
+        isOwned: zone.status === 'mine',
         level: zone.level,
       })),
       {
@@ -116,9 +180,8 @@ export default function MapView() {
         setMapCenter(pickedZone.center);
         setPanResetKey((v) => v + 1);
       }
-    } else {
-      setZoneReason('No suitable nearby zone found. Move the map to your area and try AI Zone again.');
     }
+
     setIsSelectingZone(false);
   };
 

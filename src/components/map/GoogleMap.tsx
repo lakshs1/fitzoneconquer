@@ -19,8 +19,8 @@ interface GoogleMapProps {
     id: string;
     coordinates: Array<{ lat: number; lng: number }>;
     center: { lat: number; lng: number };
-    isOwned: boolean;
-    ownerName: string;
+    status: 'vacant' | 'mine' | 'enemy';
+    ownerName?: string | null;
     level: number;
   }>;
   nearbyPlaces?: Array<{
@@ -167,7 +167,7 @@ export function GoogleMap({
   const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return; // NOTE: ignore non-primary buttons for drag
     const target = event.target as Element;
-    if (target.closest('button, polygon')) return; // NOTE: don't start drag when clicking a place marker or zone
+    if (target.closest('button, polygon, .map-control')) return; // NOTE: don't start drag when clicking a place marker or zone
 
     dragRef.current = {
       startX: event.clientX,
