@@ -153,7 +153,7 @@ export default function MapView() {
             panResetKey={panResetKey}
             userPosition={position}
             zones={zones}
-            nearbyPlaces={places}   {/* ✅ FIXED */}
+            nearbyPlaces={places}  
             showNearbyPlaces={showNearbyPlaces}
             onZoneClick={setSelectedZone}
           />
