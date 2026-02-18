@@ -203,7 +203,7 @@ export default function MapView() {
             panResetKey={panResetKey}
             userPosition={position}
             zones={zones}
-            nearbyPlaces={nearbyPlaces}
+            nearbyPlaces={places}
             showNearbyPlaces={showNearbyPlaces}
             onZoneClick={setSelectedZone}
           />
@@ -267,7 +267,7 @@ export default function MapView() {
                   <span className="text-xs text-muted-foreground">LVL {zone.level}</span>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Owner: <span className={zone.isOwned ? 'text-primary' : 'text-destructive'}>{zone.ownerName}</span>
+                  Owner: <span className={zone.status === 'mine' ? 'text-primary' : 'text-destructive'}>{zone.ownerName ?? 'Vacant'}</span>
                 </p>
               </button>
             ))}
@@ -277,7 +277,7 @@ export default function MapView() {
             <div className="mt-5 rounded-xl border border-primary/40 bg-black/20 p-4">
               <p className="font-display font-bold">{selectedZoneData.name}</p>
               {zoneReason && <p className="mt-2 text-xs text-primary">🤖 {zoneReason}</p>}
-              {!selectedZoneData.isOwned ? (
+              {selectedZoneData.status !== 'mine' ? (
                 <Button variant="danger" className="mt-3 w-full" onClick={handleChallengeZone}>
                   ⚔️ Challenge Zone
                 </Button>
