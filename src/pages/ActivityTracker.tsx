@@ -38,6 +38,9 @@ export default function ActivityTracker() {
     const result = await startActivity(type);
     if (result.success) {
       toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} started! 🏃`);
+      if (result.warning) {
+        toast.warning(result.warning);
+      }
     } else {
       toast.error(result.error || 'Failed to start activity');
     }

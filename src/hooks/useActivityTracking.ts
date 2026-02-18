@@ -191,47 +191,36 @@ export function useActivityTracking() {
   }, [state.isTracking, state.isPaused]);
 
   const startActivity = useCallback(async (type: 'run' | 'walk' | 'cycle') => {
+    let currentPos: Coordinates | null = position ?? null;
+
     try {
-      const currentPos = await getCurrentPosition().catch((error) => {
-        if (position) {
-          return position; // NOTE: fall back to watchPosition data if getCurrentPosition fails
-        }
-        throw error;
-      });
-      
-      setState({
-        isTracking: true,
-        isPaused: false,
-        activityType: type,
-        path: [currentPos],
-        distance: 0,
-        duration: 0,
-        calories: 0,
-        loops: 0,
-        startTime: new Date(),
-        currentSpeed: 0,
-      });
-      
-      lastPositionRef.current = currentPos;
-      startPositionRef.current = currentPos;
-      loopCheckDistanceRef.current = 0;
-      
-      return { success: true, startPosition: currentPos };
-    } catch (error) {
-      if (error && typeof error === 'object' && 'code' in error) {
-        const geoError = error as GeolocationPositionError;
-        const message =
-          geoError.code === geoError.PERMISSION_DENIED
-            ? 'Location permission denied. Enable GPS access.'
-            : geoError.code === geoError.POSITION_UNAVAILABLE
-              ? 'Location unavailable. Check GPS signal.'
-              : geoError.code === geoError.TIMEOUT
-                ? 'Location request timed out. Try moving to an open area.'
-                : 'Failed to get GPS position.';
-        return { success: false, error: message }; // NOTE: surface real geolocation error for clearer UX
-      }
-      return { success: false, error: 'Failed to get GPS position.' };
+      currentPos = await getCurrentPosition().catch(() => position ?? null);
+    } catch {
+      currentPos = position ?? null;
     }
+
+    setState({
+      isTracking: true,
+      isPaused: false,
+      activityType: type,
+      path: currentPos ? [currentPos] : [],
+      distance: 0,
+      duration: 0,
+      calories: 0,
+      loops: 0,
+      startTime: new Date(),
+      currentSpeed: 0,
+    });
+
+    lastPositionRef.current = currentPos;
+    startPositionRef.current = currentPos;
+    loopCheckDistanceRef.current = 0;
+
+    return {
+      success: true,
+      startPosition: currentPos,
+      warning: currentPos ? undefined : 'GPS not locked yet. Tracking started and will capture as soon as location is acquired.',
+    };
   }, [getCurrentPosition, position]);
 
   const pauseActivity = useCallback(() => {
