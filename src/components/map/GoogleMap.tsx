@@ -239,8 +239,8 @@ export function GoogleMap({
             <polygon
               key={zone.id}
               points={polygon}
-              fill={zone.isOwned ? 'rgba(250,204,21,0.3)' : 'rgba(239,68,68,0.3)'}
-              stroke={zone.isOwned ? 'rgb(250,204,21)' : 'rgb(239,68,68)'}
+              fill={zone.status === 'mine' ? 'rgba(250,204,21,0.3)' : 'rgba(239,68,68,0.3)'}
+              stroke={zone.status === 'mine' ? 'rgb(250,204,21)' : 'rgb(239,68,68)'}
               strokeWidth={2.5}
               className="pointer-events-auto cursor-pointer"
               onClick={() => onZoneClick?.(zone.id)}
