@@ -41,12 +41,11 @@ export default function MapView() {
   const [selectedZone, setSelectedZone] = useState<string | null>(null);
   const [showNearbyPlaces, setShowNearbyPlaces] = useState(false);
   const [zoom, setZoom] = useState(15);
-  const [tileLayer, setTileLayer] = useState<'standard' | 'terrain' | 'dark'>('standard');
-  const [panResetKey, setPanResetKey] = useState(0);
+    const [panResetKey, setPanResetKey] = useState(0);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | undefined>(undefined);
   const [zoneReason, setZoneReason] = useState<string | null>(null);
   const [isSelectingZone, setIsSelectingZone] = useState(false);
-  const [places, setPlaces] = useState<RealPlace[]>([]);
+  const [nearbyPlaces, setNearbyPlaces] = useState<RealPlace[]>([]);
 
   useEffect(() => {
     const anchor = position ?? mapCenter;
@@ -82,10 +81,10 @@ export default function MapView() {
           })
           .filter(Boolean)
           .slice(0, 30);
-        setPlaces(output);
+        setNearbyPlaces(output);
       })
       .catch(() => {
-        setPlaces([]);
+        setNearbyPlaces([]);
       });
 
     return () => controller.abort();
@@ -185,12 +184,7 @@ export default function MapView() {
     setIsSelectingZone(false);
   };
 
-  const tileBaseUrl =
-    tileLayer === 'terrain'
-      ? 'https://a.tile.opentopomap.org'
-      : tileLayer === 'dark'
-        ? 'https://a.basemaps.cartocdn.com/dark_all'
-        : 'https://a.basemaps.cartocdn.com/light_all';
+  const tileBaseUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
   return (
     <AppLayout wide>
@@ -241,12 +235,8 @@ export default function MapView() {
           </div>
 
           <div className="space-y-2">
-            <p className="text-xs text-muted-foreground">Map style</p>
-            <div className="grid grid-cols-3 gap-2">
-              <Button variant={tileLayer === 'standard' ? 'neon' : 'secondary'} size="sm" onClick={() => setTileLayer('standard')}>Light</Button>
-              <Button variant={tileLayer === 'terrain' ? 'neon' : 'secondary'} size="sm" onClick={() => setTileLayer('terrain')}>Terrain</Button>
-              <Button variant={tileLayer === 'dark' ? 'neon' : 'secondary'} size="sm" onClick={() => setTileLayer('dark')}>Dark</Button>
-            </div>
+            <p className="text-xs text-muted-foreground">Map source</p>
+            <Button variant="neon" size="sm" className="w-full" disabled>OpenStreetMap</Button>
           </div>
 
           <Button variant="secondary" className="mt-4 w-full" onClick={handleAiZonePick} disabled={isSelectingZone || zones.length === 0}>
@@ -267,7 +257,7 @@ export default function MapView() {
                   <span className="text-xs text-muted-foreground">LVL {zone.level}</span>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Owner: <span className={zone.isOwned ? 'text-primary' : 'text-destructive'}>{zone.ownerName}</span>
+                  Owner: <span className={zone.status === 'mine' ? 'text-primary' : 'text-destructive'}>{zone.ownerName ?? 'Vacant'}</span>
                 </p>
               </button>
             ))}
@@ -277,7 +267,7 @@ export default function MapView() {
             <div className="mt-5 rounded-xl border border-primary/40 bg-black/20 p-4">
               <p className="font-display font-bold">{selectedZoneData.name}</p>
               {zoneReason && <p className="mt-2 text-xs text-primary">🤖 {zoneReason}</p>}
-              {!selectedZoneData.isOwned ? (
+              {selectedZoneData.status !== 'mine' ? (
                 <Button variant="danger" className="mt-3 w-full" onClick={handleChallengeZone}>
                   ⚔️ Challenge Zone
                 </Button>
