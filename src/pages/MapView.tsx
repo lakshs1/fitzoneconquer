@@ -28,7 +28,7 @@ function squareAround(center: { lat: number; lng: number }, halfSizeMeters: numb
 interface RealPlace {
   id: string;
   name: string;
-  type: 'park' | 'ground' | 'trail';
+  type: 'park' | 'ground';
   location: { lat: number; lng: number };
 }
 
@@ -44,24 +44,26 @@ export default function MapView() {
   const [places, setPlaces] = useState<RealPlace[]>([]);
   const [activeZoneId, setActiveZoneId] = useState<string | null>(null);
 
-  const anchorPoint = useMemo(() => position ?? mapCenter ?? { lat: 40.7128, lng: -74.006 }, [position, mapCenter]);
+  const anchorPoint = useMemo(
+    () => position ?? mapCenter ?? { lat: 40.7128, lng: -74.006 },
+    [position, mapCenter]
+  );
 
-
-
+  // Fetch nearby parks/grounds
   useEffect(() => {
-    const anchor = anchorPoint;
     const controller = new AbortController();
+
     const query = `[out:json][timeout:25];
       (
-        way["leisure"="park"](around:5000,${anchor.lat},${anchor.lng});
-        relation["leisure"="park"](around:5000,${anchor.lat},${anchor.lng});
-        node["leisure"="park"](around:5000,${anchor.lat},${anchor.lng});
-        way["leisure"="pitch"](around:5000,${anchor.lat},${anchor.lng});
-        relation["leisure"="pitch"](around:5000,${anchor.lat},${anchor.lng});
-        node["leisure"="pitch"](around:5000,${anchor.lat},${anchor.lng});
-        way["landuse"="recreation_ground"](around:5000,${anchor.lat},${anchor.lng});
-        relation["landuse"="recreation_ground"](around:5000,${anchor.lat},${anchor.lng});
-        node["landuse"="recreation_ground"](around:5000,${anchor.lat},${anchor.lng});
+        way["leisure"="park"](around:5000,${anchorPoint.lat},${anchorPoint.lng});
+        relation["leisure"="park"](around:5000,${anchorPoint.lat},${anchorPoint.lng});
+        node["leisure"="park"](around:5000,${anchorPoint.lat},${anchorPoint.lng});
+        way["leisure"="pitch"](around:5000,${anchorPoint.lat},${anchorPoint.lng});
+        relation["leisure"="pitch"](around:5000,${anchorPoint.lat},${anchorPoint.lng});
+        node["leisure"="pitch"](around:5000,${anchorPoint.lat},${anchorPoint.lng});
+        way["landuse"="recreation_ground"](around:5000,${anchorPoint.lat},${anchorPoint.lng});
+        relation["landuse"="recreation_ground"](around:5000,${anchorPoint.lat},${anchorPoint.lng});
+        node["landuse"="recreation_ground"](around:5000,${anchorPoint.lat},${anchorPoint.lng});
       );
       out center 50;`;
 
@@ -82,12 +84,17 @@ export default function MapView() {
 
             const tags = el.tags || {};
             const isPark = tags.leisure === 'park';
-            const isGround = tags.leisure === 'pitch' || tags.landuse === 'recreation_ground';
+            const isGround =
+              tags.leisure === 'pitch' || tags.landuse === 'recreation_ground';
+
             if (!isPark && !isGround) return null;
 
             return {
               id: `${el.type}-${el.id}`,
-              name: tags.name || tags['name:en'] || (isPark ? 'Public Park' : 'Public Ground'),
+              name:
+                tags.name ||
+                tags['name:en'] ||
+                (isPark ? 'Public Park' : 'Public Ground'),
               type: isPark ? 'park' : 'ground',
               location: { lat, lng },
             };
@@ -102,8 +109,10 @@ export default function MapView() {
     return () => controller.abort();
   }, [anchorPoint]);
 
+  // Fallback zones if DB empty
   const fallbackVacantZones = useMemo(() => {
-    const anchor = position ?? { lat: 40.7128, lng: -74.006 };
+    const anchor = anchorPoint;
+
     return [
       { id: 'vacant-n', name: 'North Open Block', north: 320, east: 120, size: 120, level: 1 },
       { id: 'vacant-w', name: 'West Open Trail', north: 140, east: -420, size: 140, level: 2 },
@@ -120,7 +129,7 @@ export default function MapView() {
         level: z.level,
       };
     });
-  }, [position]);
+  }, [anchorPoint]);
 
   const zones = useMemo(() => {
     const mapped = dbZones.map((z) => ({
@@ -128,61 +137,52 @@ export default function MapView() {
       name: z.name,
       center: z.center as { lat: number; lng: number },
       coordinates: z.coordinates || [],
-      status: !z.owner_id ? 'vacant' : z.owner_id === user?.id ? 'mine' : 'enemy',
+      status: !z.owner_id
+        ? 'vacant'
+        : z.owner_id === user?.id
+        ? 'mine'
+        : 'enemy',
       ownerName: z.owner_name,
       level: z.level || 1,
     }));
+
     return mapped.length ? mapped : fallbackVacantZones;
   }, [dbZones, user?.id, fallbackVacantZones]);
 
   const recommendedPlaces = useMemo(() => {
-
     return rankNearbyPlaces(anchorPoint, places, 8);
   }, [anchorPoint, places]);
 
   const recommendedZones = useMemo(() => {
     if (!recommendedPlaces.length) return [];
+
     return rankZonesByNearbyPlaces(
       anchorPoint,
-
-    if (!position) return [];
-    return rankNearbyPlaces(position, places, 8);
-  }, [position, places]);
-
-  const recommendedZones = useMemo(() => {
-    if (!position || !recommendedPlaces.length) return [];
-    return rankZonesByNearbyPlaces(
-      position,
-
-      zones.map((zone) => ({ id: zone.id, name: zone.name, center: zone.center })),
+      zones.map((zone) => ({
+        id: zone.id,
+        name: zone.name,
+        center: zone.center,
+      })),
       recommendedPlaces,
       3
     );
-
   }, [anchorPoint, zones, recommendedPlaces]);
 
-  }, [position, zones, recommendedPlaces]);
-
-
   const activeZone =
-    recommendedZones.find((zone) => zone.zoneId === activeZoneId) ?? recommendedZones[0] ?? null;
+    recommendedZones.find((z) => z.zoneId === activeZoneId) ??
+    recommendedZones[0] ??
+    null;
 
   const directionsUrl = useMemo(() => {
-
     if (!activeZone) return null;
-    const destination = recommendedPlaces.find((place) => place.id === activeZone.nearestPlaceId);
+
+    const destination = recommendedPlaces.find(
+      (place) => place.id === activeZone.nearestPlaceId
+    );
     if (!destination) return null;
 
     return `https://www.google.com/maps/dir/?api=1&origin=${anchorPoint.lat},${anchorPoint.lng}&destination=${destination.location.lat},${destination.location.lng}&travelmode=walking`;
   }, [anchorPoint, activeZone, recommendedPlaces]);
-
-    if (!position || !activeZone) return null;
-    const destination = recommendedPlaces.find((place) => place.id === activeZone.nearestPlaceId);
-    if (!destination) return null;
-
-    return `https://www.google.com/maps/dir/?api=1&origin=${position.lat},${position.lng}&destination=${destination.location.lat},${destination.location.lng}&travelmode=walking`;
-  }, [position, activeZone, recommendedPlaces]);
-
 
   return (
     <AppLayout wide>
@@ -197,21 +197,28 @@ export default function MapView() {
             zones={zones}
             nearbyPlaces={recommendedPlaces}
             showNearbyPlaces={showNearbyPlaces}
-
             onZoneClick={setActiveZoneId}
-
           />
 
           <div className="absolute right-3 top-3 flex flex-col gap-2">
-            <Button size="icon" onClick={() => setZoom((z) => Math.min(19, z + 1))}><ZoomIn /></Button>
-            <Button size="icon" onClick={() => setZoom((z) => Math.max(3, z - 1))}><ZoomOut /></Button>
-            <Button size="icon" onClick={() => setShowNearbyPlaces((v) => !v)}><Layers /></Button>
+            <Button size="icon" onClick={() => setZoom((z) => Math.min(19, z + 1))}>
+              <ZoomIn />
+            </Button>
+            <Button size="icon" onClick={() => setZoom((z) => Math.max(3, z - 1))}>
+              <ZoomOut />
+            </Button>
+            <Button size="icon" onClick={() => setShowNearbyPlaces((v) => !v)}>
+              <Layers />
+            </Button>
           </div>
 
           <Button
             size="icon"
             className="absolute bottom-3 right-3"
-            onClick={() => position && (setMapCenter(position), setPanResetKey((v) => v + 1))}
+            onClick={() =>
+              position &&
+              (setMapCenter(position), setPanResetKey((v) => v + 1))
+            }
           >
             <Navigation />
           </Button>
@@ -225,7 +232,7 @@ export default function MapView() {
 
           {recommendedZones.length === 0 && (
             <p className="text-sm text-muted-foreground">
-              Detecting nearby public parks/grounds to recommend the best zone.
+              Detecting nearby public parks/grounds...
             </p>
           )}
 
@@ -236,16 +243,15 @@ export default function MapView() {
                 <button
                   key={zone.zoneId}
                   className={`w-full rounded-lg border px-3 py-2 text-left text-sm ${
-                    isActive ? 'border-primary bg-primary/10' : 'border-border bg-background'
+                    isActive
+                      ? 'border-primary bg-primary/10'
+                      : 'border-border bg-background'
                   }`}
                   onClick={() => setActiveZoneId(zone.zoneId)}
                 >
                   <div className="font-medium">{zone.zoneName}</div>
                   <div className="text-xs text-muted-foreground">
                     Near {zone.nearestPlaceName} ({zone.nearestPlaceType})
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Zone → place: {(zone.zoneToPlaceMeters / 1000).toFixed(2)} km • You → place: {(zone.userToPlaceMeters / 1000).toFixed(2)} km
                   </div>
                 </button>
               );
@@ -260,7 +266,7 @@ export default function MapView() {
               className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
             >
               <Route className="h-4 w-4" />
-              Get directions to recommended zone place
+              Get directions
             </a>
           )}
         </aside>
