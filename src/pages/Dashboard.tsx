@@ -1,6 +1,12 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { useUserStats, getLevelProgress, getXpToNextLevel, getDefaultStats } from '@/hooks/useUserData';
-import { Flame, MapPin, Target, TrendingUp, Award } from 'lucide-react';
+import {
+  useLeaderboard,
+  useUserStats,
+  getLevelProgress,
+  getXpToNextLevel,
+  getDefaultStats,
+} from '@/hooks/useUserData';
+import { Flame, MapPin, Target, TrendingUp, Award, Trophy } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { StatsCard } from '@/components/dashboard/StatsCard';
 import { XPProgress } from '@/components/dashboard/XPProgress';
@@ -14,7 +20,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 export default function Dashboard() {
   const { profile } = useAuth();
   const { stats: userStats, loading } = useUserStats();
-  
+  const { entries: leaderboard, loading: leaderboardLoading } = useLeaderboard(8);
+
   const stats = userStats || getDefaultStats();
 
   if (loading) {
@@ -37,7 +44,6 @@ export default function Dashboard() {
   return (
     <AppLayout>
       <div className="p-4 space-y-6">
-        {/* Header */}
         <header className="flex items-center justify-between">
           <div>
             <p className="text-muted-foreground text-sm">Welcome back,</p>
@@ -50,21 +56,16 @@ export default function Dashboard() {
           </div>
         </header>
 
-        {/* XP Progress */}
-        <XPProgress 
-          xp={stats.xp || 0} 
+        <XPProgress
+          xp={stats.xp || 0}
           level={stats.level || 1}
           progress={getLevelProgress(stats.xp || 0)}
           xpToNext={getXpToNextLevel(stats.xp || 0)}
         />
 
-        {/* Daily Goal */}
         <DailyGoal />
-
-        {/* Quick Actions */}
         <QuickActions />
 
-        {/* Stats Grid */}
         <section>
           <h2 className="font-display text-lg font-semibold mb-3 flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-primary" />
@@ -102,13 +103,44 @@ export default function Dashboard() {
           </div>
         </section>
 
-        {/* AI Coach */}
+        <section className="rounded-xl border bg-card p-4">
+          <h2 className="font-display text-lg font-semibold mb-3 flex items-center gap-2">
+            <Trophy className="w-5 h-5 text-primary" />
+            Leaderboard (XP & Level)
+          </h2>
+
+          {leaderboardLoading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : leaderboard.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No leaderboard data yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {leaderboard.map((entry, index) => (
+                <div
+                  key={entry.user_id}
+                  className="flex items-center justify-between rounded-lg border bg-background px-3 py-2"
+                >
+                  <div>
+                    <div className="text-sm font-medium">
+                      #{index + 1} {entry.name}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Level {entry.level} • {(entry.total_distance / 1000).toFixed(1)} km • {entry.zones_owned} zones
+                    </div>
+                  </div>
+                  <div className="text-sm font-semibold text-primary">{entry.xp.toLocaleString()} XP</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
         <AICoachCard />
-
-        {/* Daily go-to zones */}
         <DailyGoToZones />
-
-        {/* Recent Activity */}
         <RecentActivity />
       </div>
     </AppLayout>

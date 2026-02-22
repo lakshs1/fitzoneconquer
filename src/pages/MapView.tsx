@@ -43,11 +43,13 @@ export default function MapView() {
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>();
   const [places, setPlaces] = useState<RealPlace[]>([]);
   const [activeZoneId, setActiveZoneId] = useState<string | null>(null);
+<<<<<<< codex/new-task-xibbvb
+  const anchorPoint = useMemo(() => position ?? mapCenter ?? { lat: 40.7128, lng: -74.006 }, [position, mapCenter]);
+=======
+>>>>>>> main
 
   useEffect(() => {
-    const anchor = position ?? mapCenter;
-    if (!anchor) return;
-
+    const anchor = anchorPoint;
     const controller = new AbortController();
     const query = `[out:json][timeout:25];
       (
@@ -98,7 +100,7 @@ export default function MapView() {
       .catch(() => setPlaces([]));
 
     return () => controller.abort();
-  }, [position, mapCenter]);
+  }, [anchorPoint]);
 
   const fallbackVacantZones = useMemo(() => {
     const anchor = position ?? { lat: 40.7128, lng: -74.006 };
@@ -134,6 +136,15 @@ export default function MapView() {
   }, [dbZones, user?.id, fallbackVacantZones]);
 
   const recommendedPlaces = useMemo(() => {
+<<<<<<< codex/new-task-xibbvb
+    return rankNearbyPlaces(anchorPoint, places, 8);
+  }, [anchorPoint, places]);
+
+  const recommendedZones = useMemo(() => {
+    if (!recommendedPlaces.length) return [];
+    return rankZonesByNearbyPlaces(
+      anchorPoint,
+=======
     if (!position) return [];
     return rankNearbyPlaces(position, places, 8);
   }, [position, places]);
@@ -142,22 +153,36 @@ export default function MapView() {
     if (!position || !recommendedPlaces.length) return [];
     return rankZonesByNearbyPlaces(
       position,
+>>>>>>> main
       zones.map((zone) => ({ id: zone.id, name: zone.name, center: zone.center })),
       recommendedPlaces,
       3
     );
+<<<<<<< codex/new-task-xibbvb
+  }, [anchorPoint, zones, recommendedPlaces]);
+=======
   }, [position, zones, recommendedPlaces]);
+>>>>>>> main
 
   const activeZone =
     recommendedZones.find((zone) => zone.zoneId === activeZoneId) ?? recommendedZones[0] ?? null;
 
   const directionsUrl = useMemo(() => {
+<<<<<<< codex/new-task-xibbvb
+    if (!activeZone) return null;
+    const destination = recommendedPlaces.find((place) => place.id === activeZone.nearestPlaceId);
+    if (!destination) return null;
+
+    return `https://www.google.com/maps/dir/?api=1&origin=${anchorPoint.lat},${anchorPoint.lng}&destination=${destination.location.lat},${destination.location.lng}&travelmode=walking`;
+  }, [anchorPoint, activeZone, recommendedPlaces]);
+=======
     if (!position || !activeZone) return null;
     const destination = recommendedPlaces.find((place) => place.id === activeZone.nearestPlaceId);
     if (!destination) return null;
 
     return `https://www.google.com/maps/dir/?api=1&origin=${position.lat},${position.lng}&destination=${destination.location.lat},${destination.location.lng}&travelmode=walking`;
   }, [position, activeZone, recommendedPlaces]);
+>>>>>>> main
 
   return (
     <AppLayout wide>
@@ -172,6 +197,10 @@ export default function MapView() {
             zones={zones}
             nearbyPlaces={recommendedPlaces}
             showNearbyPlaces={showNearbyPlaces}
+<<<<<<< codex/new-task-xibbvb
+            onZoneClick={setActiveZoneId}
+=======
+>>>>>>> main
           />
 
           <div className="absolute right-3 top-3 flex flex-col gap-2">

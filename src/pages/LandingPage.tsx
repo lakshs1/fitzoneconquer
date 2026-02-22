@@ -67,10 +67,8 @@ export default function LandingPage() {
 
         <div className="relative z-10 p-6 flex flex-col h-full">
           {/* Logo */}
-          <div className="flex items-center gap-2 mb-8">
-            <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center">
-              <MapPin className="w-5 h-5 text-primary-foreground" />
-            </div>
+          <div className="flex items-center gap-3 mb-8">
+            <img src="/fz-logo.svg" alt="FitZone logo" className="h-10 w-10 rounded-lg border border-white/10" />
             <span className="text-xl font-display font-bold text-glow">FitZone</span>
           </div>
 
