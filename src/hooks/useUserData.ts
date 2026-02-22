@@ -196,6 +196,68 @@ export function useZones() {
   return { zones, myZones, enemyZones, loading, error };
 }
 
+
+
+export interface LeaderboardEntry {
+  user_id: string;
+  name: string;
+  avatar_url: string | null;
+  xp: number;
+  level: number;
+  zones_owned: number;
+  total_distance: number;
+}
+
+export function useLeaderboard(limit = 10) {
+  const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchLeaderboard = async () => {
+      setLoading(true);
+      setError(null);
+
+      const { data, error } = await supabase.rpc('get_leaderboard', {
+        limit_count: limit,
+      });
+
+      if (error) {
+        setError(error.message);
+        setEntries([]);
+      } else {
+        const normalized = ((data || []) as any[]).map((row) => ({
+          ...row,
+          xp: Number(row.xp || 0),
+          level: Number(row.level || 1),
+          zones_owned: Number(row.zones_owned || 0),
+          total_distance: Number(row.total_distance || 0),
+        }));
+        setEntries(normalized);
+      }
+
+      setLoading(false);
+    };
+
+    fetchLeaderboard();
+
+    const channel = supabase
+      .channel('leaderboard_user_stats_changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'user_stats' },
+        () => fetchLeaderboard()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [limit]);
+
+  return { entries, loading, error };
+}
+
 // Helper to format stats for display
 export function getDefaultStats(): UserStats {
   return {

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="FitZone FZ logo">
+  <rect width="512" height="512" rx="88" fill="#151515"/>
+  <g fill="#f7d019">
+    <path d="M104 182h195l-24 40H166l-15 26h121l-24 40H127z"/>
+    <path d="M318 182h114l-130 148h113l-24 40H262l130-148H294z"/>
+  </g>
+</svg>
