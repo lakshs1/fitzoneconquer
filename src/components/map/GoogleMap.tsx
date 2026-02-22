@@ -26,7 +26,7 @@ interface GoogleMapProps {
   nearbyPlaces?: Array<{
     id: string;
     name: string;
-    type: 'gym' | 'park' | 'trail';
+    type: 'park' | 'ground' | 'trail';
     location: { lat: number; lng: number };
     rating?: number;
   }>;
@@ -268,7 +268,7 @@ export function GoogleMap({
       {displayedPlaces.map((place) => {
         const pos = toScreen(place.location);
         const icon =
-          place.type === 'gym' ? '💪' : place.type === 'park' ? '🌳' : '🏃';
+          place.type === 'park' ? '🌳' : place.type === 'ground' ? '🏟️' : '🏃';
 
         return (
           <button

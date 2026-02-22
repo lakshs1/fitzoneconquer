@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Navigation, Layers, ZoomIn, ZoomOut, Sparkles, MapPinned } from 'lucide-react';
+import { Navigation, Layers, ZoomIn, ZoomOut, MapPinned, Route } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { GoogleMap } from '@/components/map/GoogleMap';
 import { useAuth } from '@/contexts/AuthContext';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { useZones } from '@/hooks/useUserData';
-import { selectBestZone } from '@/services/zoneDecision';
+import { rankNearbyPlaces, rankZonesByNearbyPlaces } from '@/lib/mapAlgorithms';
 
 function offsetPoint(origin: { lat: number; lng: number }, northMeters: number, eastMeters: number) {
   const lat = origin.lat + northMeters / 111_320;
@@ -29,41 +28,40 @@ function squareAround(center: { lat: number; lng: number }, halfSizeMeters: numb
 interface RealPlace {
   id: string;
   name: string;
-  type: 'gym' | 'park' | 'trail';
+  type: 'park' | 'ground' | 'trail';
   location: { lat: number; lng: number };
 }
 
 export default function MapView() {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const { zones: dbZones } = useZones();
   const { position } = useGeolocation();
 
-  const [selectedZone, setSelectedZone] = useState<string | null>(null);
-  const [showNearbyPlaces, setShowNearbyPlaces] = useState(false);
+  const [showNearbyPlaces, setShowNearbyPlaces] = useState(true);
   const [zoom, setZoom] = useState(15);
-  const [tileLayer, setTileLayer] = useState<'standard' | 'terrain' | 'dark'>('standard');
   const [panResetKey, setPanResetKey] = useState(0);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>();
-  const [zoneReason, setZoneReason] = useState<string | null>(null);
-  const [isSelectingZone, setIsSelectingZone] = useState(false);
-
-  // 🔥 FIX: use `places`, not undefined variable
   const [places, setPlaces] = useState<RealPlace[]>([]);
+  const [activeZoneId, setActiveZoneId] = useState<string | null>(null);
 
   useEffect(() => {
     const anchor = position ?? mapCenter;
     if (!anchor) return;
 
     const controller = new AbortController();
-    const query = `[out:json][timeout:20];
+    const query = `[out:json][timeout:25];
       (
-        node["leisure"="park"](around:3500,${anchor.lat},${anchor.lng});
-        node["leisure"="fitness_centre"](around:3500,${anchor.lat},${anchor.lng});
-        node["amenity"="gym"](around:3500,${anchor.lat},${anchor.lng});
-        way["highway"="path"](around:3500,${anchor.lat},${anchor.lng});
+        way["leisure"="park"](around:5000,${anchor.lat},${anchor.lng});
+        relation["leisure"="park"](around:5000,${anchor.lat},${anchor.lng});
+        node["leisure"="park"](around:5000,${anchor.lat},${anchor.lng});
+        way["leisure"="pitch"](around:5000,${anchor.lat},${anchor.lng});
+        relation["leisure"="pitch"](around:5000,${anchor.lat},${anchor.lng});
+        node["leisure"="pitch"](around:5000,${anchor.lat},${anchor.lng});
+        way["landuse"="recreation_ground"](around:5000,${anchor.lat},${anchor.lng});
+        relation["landuse"="recreation_ground"](around:5000,${anchor.lat},${anchor.lng});
+        node["landuse"="recreation_ground"](around:5000,${anchor.lat},${anchor.lng});
       );
-      out center 25;`;
+      out center 50;`;
 
     fetch('https://overpass-api.de/api/interpreter', {
       method: 'POST',
@@ -81,19 +79,19 @@ export default function MapView() {
             if (!lat || !lng) return null;
 
             const tags = el.tags || {};
-            let type: RealPlace['type'] = 'trail';
-            if (tags.leisure === 'park') type = 'park';
-            if (tags.amenity === 'gym' || tags.leisure === 'fitness_centre') type = 'gym';
+            const isPark = tags.leisure === 'park';
+            const isGround = tags.leisure === 'pitch' || tags.landuse === 'recreation_ground';
+            if (!isPark && !isGround) return null;
 
             return {
               id: `${el.type}-${el.id}`,
-              name: tags.name || tags['name:en'] || 'Unnamed place',
-              type,
+              name: tags.name || tags['name:en'] || (isPark ? 'Public Park' : 'Public Ground'),
+              type: isPark ? 'park' : 'ground',
               location: { lat, lng },
             };
           })
           .filter(Boolean)
-          .slice(0, 30);
+          .slice(0, 60);
 
         setPlaces(output);
       })
@@ -135,12 +133,31 @@ export default function MapView() {
     return mapped.length ? mapped : fallbackVacantZones;
   }, [dbZones, user?.id, fallbackVacantZones]);
 
-  const tileBaseUrl =
-    tileLayer === 'terrain'
-      ? 'https://a.tile.opentopomap.org'
-      : tileLayer === 'dark'
-        ? 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}'
-        : 'https://mt1.google.com/vt/lyrs=r&x={x}&y={y}&z={z}';
+  const recommendedPlaces = useMemo(() => {
+    if (!position) return [];
+    return rankNearbyPlaces(position, places, 8);
+  }, [position, places]);
+
+  const recommendedZones = useMemo(() => {
+    if (!position || !recommendedPlaces.length) return [];
+    return rankZonesByNearbyPlaces(
+      position,
+      zones.map((zone) => ({ id: zone.id, name: zone.name, center: zone.center })),
+      recommendedPlaces,
+      3
+    );
+  }, [position, zones, recommendedPlaces]);
+
+  const activeZone =
+    recommendedZones.find((zone) => zone.zoneId === activeZoneId) ?? recommendedZones[0] ?? null;
+
+  const directionsUrl = useMemo(() => {
+    if (!position || !activeZone) return null;
+    const destination = recommendedPlaces.find((place) => place.id === activeZone.nearestPlaceId);
+    if (!destination) return null;
+
+    return `https://www.google.com/maps/dir/?api=1&origin=${position.lat},${position.lng}&destination=${destination.location.lat},${destination.location.lng}&travelmode=walking`;
+  }, [position, activeZone, recommendedPlaces]);
 
   return (
     <AppLayout wide>
@@ -149,13 +166,12 @@ export default function MapView() {
           <GoogleMap
             center={mapCenter}
             zoom={zoom}
-            tileBaseUrl={tileBaseUrl}
+            tileBaseUrl="https://mt1.google.com/vt/lyrs=r&x={x}&y={y}&z={z}"
             panResetKey={panResetKey}
             userPosition={position}
             zones={zones}
-            nearbyPlaces={places}  
+            nearbyPlaces={recommendedPlaces}
             showNearbyPlaces={showNearbyPlaces}
-            onZoneClick={setSelectedZone}
           />
 
           <div className="absolute right-3 top-3 flex flex-col gap-2">
@@ -172,6 +188,54 @@ export default function MapView() {
             <Navigation />
           </Button>
         </div>
+
+        <aside className="rounded-2xl border bg-card p-4 shadow-xl">
+          <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold">
+            <MapPinned className="h-5 w-5 text-primary" />
+            Zone Recommendations
+          </h2>
+
+          {recommendedZones.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              Detecting nearby public parks/grounds to recommend the best zone.
+            </p>
+          )}
+
+          <div className="space-y-2">
+            {recommendedZones.map((zone) => {
+              const isActive = zone.zoneId === activeZone?.zoneId;
+              return (
+                <button
+                  key={zone.zoneId}
+                  className={`w-full rounded-lg border px-3 py-2 text-left text-sm ${
+                    isActive ? 'border-primary bg-primary/10' : 'border-border bg-background'
+                  }`}
+                  onClick={() => setActiveZoneId(zone.zoneId)}
+                >
+                  <div className="font-medium">{zone.zoneName}</div>
+                  <div className="text-xs text-muted-foreground">
+                    Near {zone.nearestPlaceName} ({zone.nearestPlaceType})
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Zone → place: {(zone.zoneToPlaceMeters / 1000).toFixed(2)} km • You → place: {(zone.userToPlaceMeters / 1000).toFixed(2)} km
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {activeZone && directionsUrl && (
+            <a
+              href={directionsUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
+            >
+              <Route className="h-4 w-4" />
+              Get directions to recommended zone place
+            </a>
+          )}
+        </aside>
       </div>
     </AppLayout>
   );
