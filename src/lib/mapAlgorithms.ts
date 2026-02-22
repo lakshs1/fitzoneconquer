@@ -13,11 +13,28 @@ export interface ProjectedPoint {
 export interface RankedPlace {
   id: string;
   name: string;
-  type: 'gym' | 'park' | 'trail';
+  type: 'park' | 'ground' | 'trail';
   location: LatLng;
   rating?: number;
   score: number;
   distanceMeters: number;
+}
+
+export interface ZoneRecommendationInput {
+  id: string;
+  name: string;
+  center: LatLng;
+}
+
+export interface ZoneRecommendation {
+  zoneId: string;
+  zoneName: string;
+  nearestPlaceId: string;
+  nearestPlaceName: string;
+  nearestPlaceType: 'park' | 'ground' | 'trail';
+  zoneToPlaceMeters: number;
+  userToPlaceMeters: number;
+  score: number;
 }
 
 export interface ZoneDraft {
@@ -172,16 +189,16 @@ export function rankNearbyPlaces(
   places: Array<{
     id: string;
     name: string;
-    type: 'gym' | 'park' | 'trail';
+    type: 'park' | 'ground' | 'trail';
     location: LatLng;
     rating?: number;
   }>,
   limit = 10
 ): RankedPlace[] {
-  const typeWeight: Record<'gym' | 'park' | 'trail', number> = {
-    gym: 0.75,
+  const typeWeight: Record<'park' | 'ground' | 'trail', number> = {
     park: 1,
-    trail: 0.95,
+    ground: 0.98,
+    trail: 0.92,
   };
 
   return places
@@ -203,6 +220,43 @@ export function rankNearbyPlaces(
         ...place,
         score,
         distanceMeters,
+      };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
+}
+
+export function rankZonesByNearbyPlaces(
+  user: LatLng,
+  zones: ZoneRecommendationInput[],
+  places: Array<Pick<RankedPlace, 'id' | 'name' | 'type' | 'location'>>,
+  limit = 3
+): ZoneRecommendation[] {
+  if (!zones.length || !places.length) return [];
+
+  return zones
+    .map((zone) => {
+      const nearest = places
+        .map((place) => ({
+          place,
+          zoneToPlaceMeters: haversineDistanceMeters(zone.center, place.location),
+          userToPlaceMeters: haversineDistanceMeters(user, place.location),
+        }))
+        .sort((a, b) => a.zoneToPlaceMeters - b.zoneToPlaceMeters)[0];
+
+      const zoneProximity = 1 / (1 + nearest.zoneToPlaceMeters / 350);
+      const userProximity = 1 / (1 + nearest.userToPlaceMeters / 1200);
+      const score = zoneProximity * 0.65 + userProximity * 0.35;
+
+      return {
+        zoneId: zone.id,
+        zoneName: zone.name,
+        nearestPlaceId: nearest.place.id,
+        nearestPlaceName: nearest.place.name,
+        nearestPlaceType: nearest.place.type,
+        zoneToPlaceMeters: nearest.zoneToPlaceMeters,
+        userToPlaceMeters: nearest.userToPlaceMeters,
+        score,
       };
     })
     .sort((a, b) => b.score - a.score)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deriveZoneFromPath, haversineDistanceMeters, latLngToWorldPoint, rankNearbyPlaces, smoothGpsPath } from './mapAlgorithms';
+import { deriveZoneFromPath, haversineDistanceMeters, latLngToWorldPoint, rankNearbyPlaces, rankZonesByNearbyPlaces, smoothGpsPath } from './mapAlgorithms';
 
 describe('mapAlgorithms', () => {
   it('projects coordinates to finite world points', () => {
@@ -62,4 +62,26 @@ describe('mapAlgorithms', () => {
     expect(zone?.kind).toBe('route');
     expect(zone?.coordinates.length).toBeGreaterThan(8);
   });
+
+
+  it('recommends zones that are close to detected parks/grounds', () => {
+    const recommendations = rankZonesByNearbyPlaces(
+      { lat: 40.7128, lng: -74.006 },
+      [
+        { id: 'zone-near-park', name: 'Riverside Zone', center: { lat: 40.7131, lng: -74.0061 } },
+        { id: 'zone-far', name: 'Uptown Zone', center: { lat: 40.7300, lng: -74.0200 } },
+      ],
+      [
+        { id: 'place-1', name: 'Hudson Park', type: 'park', location: { lat: 40.7130, lng: -74.0060 } },
+        { id: 'place-2', name: 'Community Ground', type: 'ground', location: { lat: 40.7140, lng: -74.0050 } },
+      ],
+      2
+    );
+
+    expect(recommendations).toHaveLength(2);
+    expect(recommendations[0].zoneId).toBe('zone-near-park');
+    expect(recommendations[0].nearestPlaceName).toBe('Hudson Park');
+    expect(recommendations[0].zoneToPlaceMeters).toBeLessThan(80);
+  });
+
 });
