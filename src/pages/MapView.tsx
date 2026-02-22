@@ -43,10 +43,9 @@ export default function MapView() {
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>();
   const [places, setPlaces] = useState<RealPlace[]>([]);
   const [activeZoneId, setActiveZoneId] = useState<string | null>(null);
-<<<<<<< codex/new-task-xibbvb
+
   const anchorPoint = useMemo(() => position ?? mapCenter ?? { lat: 40.7128, lng: -74.006 }, [position, mapCenter]);
-=======
->>>>>>> main
+
 
   useEffect(() => {
     const anchor = anchorPoint;
