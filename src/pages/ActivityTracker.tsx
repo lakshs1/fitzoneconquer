@@ -8,13 +8,6 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { createAreaShareImage } from '@/lib/shareAreaImage';
 import type { Coordinates } from '@/hooks/useGeolocation';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 
 export default function ActivityTracker() {
   const {
@@ -43,7 +36,6 @@ export default function ActivityTracker() {
     distanceMeters: number;
     path: Coordinates[];
   }>(null);
-  const [shareDialogOpen, setShareDialogOpen] = useState(false);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -53,7 +45,6 @@ export default function ActivityTracker() {
 
   const handleStart = async (type: 'run' | 'walk' | 'cycle') => {
     setLastCapturedArea(null);
-    setShareDialogOpen(false);
     const result = await startActivity(type);
     if (result.success) {
       toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} started! 🏃`);
@@ -78,18 +69,15 @@ export default function ActivityTracker() {
   const handleStop = async () => {
     const result = await stopActivity();
     if (result) {
-      const completedWorkout = {
-        ownerName: result.createdZone?.owner_name || 'FitZone User',
-        areaName:
-          result.createdZone?.name ||
-          `${result.activityType.charAt(0).toUpperCase() + result.activityType.slice(1)} Workout`,
-        durationSeconds: result.duration,
-        distanceMeters: result.distance,
-        path: result.path,
-      };
-
-      setLastCapturedArea(completedWorkout);
-      setShareDialogOpen(true);
+      if (result.createdZone) {
+        setLastCapturedArea({
+          ownerName: result.createdZone.owner_name || 'FitZone User',
+          areaName: result.createdZone.name,
+          durationSeconds: result.duration,
+          distanceMeters: result.distance,
+          path: result.path,
+        });
+      }
 
       toast.success(
         `Great workout! 💪 ${(result.distance / 1000).toFixed(2)}km, ${result.loops} loops, +${result.xpEarned} XP!${result.createdZone ? ' Area captured under your name.' : ''}`
@@ -111,7 +99,6 @@ export default function ActivityTracker() {
           files: [file],
         });
         toast.success('Captured area screenshot shared!');
-        setShareDialogOpen(false);
         return;
       }
 
@@ -123,7 +110,6 @@ export default function ActivityTracker() {
       URL.revokeObjectURL(url);
       await navigator.clipboard?.writeText(shareText).catch(() => undefined);
       toast.success('Screenshot downloaded. Share text copied when allowed.');
-      setShareDialogOpen(false);
     } catch (error) {
       console.error('Failed to share captured area:', error);
       toast.error('Could not create the captured area screenshot.');
@@ -303,9 +289,9 @@ export default function ActivityTracker() {
                 Covered {(lastCapturedArea.distanceMeters / 1000).toFixed(2)} km in {formatTime(lastCapturedArea.durationSeconds)}.
               </p>
             </div>
-            <Button variant="neon" className="w-full gap-2" onClick={() => setShareDialogOpen(true)}>
+            <Button variant="neon" className="w-full gap-2" onClick={handleShareCapturedArea}>
               <Share2 className="h-4 w-4" />
-              Share recent workout
+              Share area screenshot
             </Button>
           </div>
         )}
