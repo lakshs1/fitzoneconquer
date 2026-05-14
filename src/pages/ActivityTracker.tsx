@@ -43,6 +43,11 @@ export default function ActivityTracker() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const formatActivityType = (type?: string | null) => {
+    if (!type) return 'Workout';
+    return `${type.charAt(0).toUpperCase()}${type.slice(1)}`;
+  };
+
   const handleStart = async (type: 'run' | 'walk' | 'cycle') => {
     setLastCapturedArea(null);
     const result = await startActivity(type);
@@ -118,7 +123,7 @@ export default function ActivityTracker() {
 
   return (
     <AppLayout>
-      <div className="flex flex-col h-[calc(100vh-5rem)]">
+      <div className="flex min-h-[calc(100vh-5rem)] flex-col">
         {/* Header */}
         <header className="p-4 text-center">
           <h1 className="text-2xl font-display font-bold text-glow">Activity Tracker</h1>
@@ -150,10 +155,10 @@ export default function ActivityTracker() {
         )}
 
         {/* Content Area */}
-        <div className="flex-1 overflow-hidden">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           {showMap && isTracking ? (
             // Live Map View
-            <div className="h-full relative">
+            <div className="relative min-h-[55vh]">
               <GoogleMap
                 center={position || undefined}
                 panResetKey={panResetKey}
@@ -188,16 +193,16 @@ export default function ActivityTracker() {
             </div>
           ) : (
             // Stats View
-            <div className="p-4 space-y-6">
+            <div className="relative space-y-5 p-4 pb-6">
               {/* Main Stats Display */}
               <div className="relative">
-                <div className="relative w-64 h-64 mx-auto">
+                <div className="relative mx-auto h-52 w-52 sm:h-64 sm:w-64">
                   <div className={cn(
                     "w-full h-full rounded-full border-8 border-muted flex items-center justify-center",
                     isTracking && !isPaused && "animate-pulse-neon border-primary/30"
                   )}>
                     <div className="text-center">
-                      <p className="text-5xl font-display font-bold text-glow">
+                      <p className="text-4xl font-display font-bold text-glow sm:text-5xl">
                         {formatTime(duration)}
                       </p>
                       <p className="text-muted-foreground text-sm mt-2">Duration</p>
@@ -218,7 +223,7 @@ export default function ActivityTracker() {
               </div>
 
               {/* Stats Grid */}
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <div className="stat-card text-center p-3">
                   <MapPin className="w-4 h-4 text-primary mx-auto mb-1" />
                   <p className="text-lg font-display font-bold">
@@ -297,7 +302,7 @@ export default function ActivityTracker() {
         )}
 
         {/* Control Buttons */}
-        <div className="p-4 border-t border-border">
+        <div className="sticky bottom-0 z-10 border-t border-border bg-background/95 p-4 backdrop-blur">
           {!isTracking ? (
             <div className="space-y-3">
               <p className="text-center text-sm text-muted-foreground">Choose activity type:</p>
