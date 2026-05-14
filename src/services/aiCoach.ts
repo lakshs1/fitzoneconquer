@@ -40,17 +40,11 @@ export interface UserContext {
   zonesOwned: number;
   currentLocation?: { lat: number; lng: number };
   timeOfDay: 'morning' | 'afternoon' | 'evening' | 'night';
-  nearbyPlaces?: Array<{ name: string; type: string }>;
 }
 
 export interface CoachResponse {
   message: string;
   suggestions?: string[];
-  recommendedPlace?: {
-    name: string;
-    type: 'gym' | 'park' | 'trail';
-    reason: string;
-  };
 }
 
 // AI Provider interface - implement this for any LLM
@@ -67,14 +61,14 @@ Your personality:
 - Uses gaming terminology (XP, levels, conquering zones)
 - Gives practical, actionable fitness advice
 - Considers user's fitness level and goals
-- Recommends nearby places for workouts when relevant
+- Focuses on the user's tracked workouts, captured areas, and safe self-directed training
 
 When responding:
 - Keep responses concise (2-3 sentences max)
 - Include emojis sparingly for energy
 - Reference their stats and progress
 - Suggest specific activities based on time of day
-- If they mention a location, recommend nearby gyms or parks
+- Do not suggest new places, parks, gyms, trails, or routes near the user
 
 Never:
 - Give medical advice
@@ -90,7 +84,7 @@ function generateFallbackResponse(
   context: UserContext
 ): CoachResponse {
   const message = userMessage.toLowerCase();
-  const { timeOfDay, fitnessLevel, streak, level, zonesOwned, nearbyPlaces } = context;
+  const { timeOfDay, fitnessLevel, streak, level, zonesOwned } = context;
   
   // Greeting responses
   if (message.includes('hello') || message.includes('hi') || message.includes('hey')) {
@@ -107,7 +101,7 @@ function generateFallbackResponse(
     const workouts: Record<string, string[]> = {
       morning: [
         `Morning energy! 🌅 Perfect time for a zone capture run. ${fitnessLevel === 'beginner' ? 'Start with a 15-min walk to warm up.' : 'Try a 30-min jog to claim new territory!'}`,
-        `Rise and conquer! A morning workout burns more fat. Head to a nearby park for some fresh air and XP!`,
+        `Rise and conquer! A morning workout can build consistency. Start tracking from wherever you are and claim the area you actually cover!`,
       ],
       afternoon: [
         `Afternoon power hour! 💥 Your muscles are warmed up. Perfect for ${fitnessLevel === 'advanced' ? 'an intense HIIT session' : 'a steady-paced walk or light jog'}.`,
@@ -115,7 +109,7 @@ function generateFallbackResponse(
       ],
       evening: [
         `Evening warrior mode! 🌆 Great time for a cool-down run. The zones are calling!`,
-        `Sunset sessions are perfect for zone captures. Less crowded parks, more territory to claim!`,
+        `Sunset sessions are perfect for zone captures. Track your real route and let FitZone mark the area you complete!`,
       ],
       night: [
         `Night owl training! 🌙 Keep it light - a short walk or stretching session works great.`,
@@ -126,25 +120,15 @@ function generateFallbackResponse(
     const suggestions = workouts[timeOfDay] || workouts.afternoon;
     return { 
       message: suggestions[Math.floor(Math.random() * suggestions.length)],
-      suggestions: ['Start a run', 'Find nearby gym', 'Quick stretch routine'],
+      suggestions: ['Start a run', 'Track current area', 'Quick stretch routine'],
     };
   }
   
-  // Location/place recommendations
+  // Location/place requests: keep the app focused on tracked areas, not suggested places.
   if (message.includes('where') || message.includes('gym') || message.includes('park') || message.includes('go')) {
-    if (nearbyPlaces && nearbyPlaces.length > 0) {
-      const place = nearbyPlaces[0];
-      return {
-        message: `I'd recommend ${place.name}! 📍 It's a great ${place.type} for your ${fitnessLevel} level. Perfect for capturing new zones in that area!`,
-        recommendedPlace: {
-          name: place.name,
-          type: place.type as 'gym' | 'park' | 'trail',
-          reason: `Great for ${fitnessLevel} level training`,
-        },
-      };
-    }
     return {
-      message: `Enable location to get personalized place recommendations! 📍 I can find gyms, parks, and trails near you for optimal zone conquering.`,
+      message: `I won't suggest new places. Start an activity where you are, finish your route, and FitZone will mark the exact area you covered under your name.`,
+      suggestions: ['Start activity', 'View captured areas', 'Share recent workout'],
     };
   }
   
@@ -185,7 +169,7 @@ function generateFallbackResponse(
   
   return {
     message: defaultResponses[Math.floor(Math.random() * defaultResponses.length)],
-    suggestions: ['Start workout', 'See my zones', 'Get recommendations'],
+    suggestions: ['Start workout', 'See my zones', 'Share workout'],
   };
 }
 

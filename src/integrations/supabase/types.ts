@@ -254,6 +254,10 @@ export type Database = {
       zones: {
         Row: {
           captured_at: string | null
+          activity_id: string | null
+          capture_distance_meters: number | null
+          capture_duration_seconds: number | null
+          capture_path: Json | null
           center: Json
           coordinates: Json
           created_at: string
@@ -268,6 +272,10 @@ export type Database = {
         }
         Insert: {
           captured_at?: string | null
+          activity_id?: string | null
+          capture_distance_meters?: number | null
+          capture_duration_seconds?: number | null
+          capture_path?: Json | null
           center: Json
           coordinates?: Json
           created_at?: string
@@ -282,6 +290,10 @@ export type Database = {
         }
         Update: {
           captured_at?: string | null
+          activity_id?: string | null
+          capture_distance_meters?: number | null
+          capture_duration_seconds?: number | null
+          capture_path?: Json | null
           center?: Json
           coordinates?: Json
           created_at?: string

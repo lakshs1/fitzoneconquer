@@ -1,11 +1,20 @@
-import { useState, useEffect, useRef } from 'react';
-import { Play, Pause, Square, MapPin, Flame, Zap, Navigation, Crosshair } from 'lucide-react';
+import { useState } from 'react';
+import { Play, Pause, Square, MapPin, Flame, Zap, Navigation, Crosshair, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { useActivityTracking } from '@/hooks/useActivityTracking';
 import { GoogleMap } from '@/components/map/GoogleMap';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { createAreaShareImage } from '@/lib/shareAreaImage';
+import type { Coordinates } from '@/hooks/useGeolocation';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 export default function ActivityTracker() {
   const {
@@ -27,6 +36,14 @@ export default function ActivityTracker() {
 
   const [showMap, setShowMap] = useState(false);
   const [panResetKey, setPanResetKey] = useState(0);
+  const [lastCapturedArea, setLastCapturedArea] = useState<null | {
+    ownerName: string;
+    areaName: string;
+    durationSeconds: number;
+    distanceMeters: number;
+    path: Coordinates[];
+  }>(null);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -35,6 +52,8 @@ export default function ActivityTracker() {
   };
 
   const handleStart = async (type: 'run' | 'walk' | 'cycle') => {
+    setLastCapturedArea(null);
+    setShareDialogOpen(false);
     const result = await startActivity(type);
     if (result.success) {
       toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} started! 🏃`);
@@ -59,9 +78,55 @@ export default function ActivityTracker() {
   const handleStop = async () => {
     const result = await stopActivity();
     if (result) {
+      const completedWorkout = {
+        ownerName: result.createdZone?.owner_name || 'FitZone User',
+        areaName:
+          result.createdZone?.name ||
+          `${result.activityType.charAt(0).toUpperCase() + result.activityType.slice(1)} Workout`,
+        durationSeconds: result.duration,
+        distanceMeters: result.distance,
+        path: result.path,
+      };
+
+      setLastCapturedArea(completedWorkout);
+      setShareDialogOpen(true);
+
       toast.success(
-        `Great workout! 💪 ${(result.distance / 1000).toFixed(2)}km, ${result.loops} loops, +${result.xpEarned} XP!${result.createdZone ? ' Zone captured from your route.' : ''}`
+        `Great workout! 💪 ${(result.distance / 1000).toFixed(2)}km, ${result.loops} loops, +${result.xpEarned} XP!${result.createdZone ? ' Area captured under your name.' : ''}`
       );
+    }
+  };
+
+  const handleShareCapturedArea = async () => {
+    if (!lastCapturedArea) return;
+
+    try {
+      const file = await createAreaShareImage(lastCapturedArea);
+      const shareText = `${lastCapturedArea.ownerName} covered ${(lastCapturedArea.distanceMeters / 1000).toFixed(2)} km in ${formatTime(lastCapturedArea.durationSeconds)} on FitZone Conquer.`;
+
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({
+          title: 'FitZone captured area',
+          text: shareText,
+          files: [file],
+        });
+        toast.success('Captured area screenshot shared!');
+        setShareDialogOpen(false);
+        return;
+      }
+
+      const url = URL.createObjectURL(file);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = file.name;
+      link.click();
+      URL.revokeObjectURL(url);
+      await navigator.clipboard?.writeText(shareText).catch(() => undefined);
+      toast.success('Screenshot downloaded. Share text copied when allowed.');
+      setShareDialogOpen(false);
+    } catch (error) {
+      console.error('Failed to share captured area:', error);
+      toast.error('Could not create the captured area screenshot.');
     }
   };
 
@@ -230,6 +295,21 @@ export default function ActivityTracker() {
           )}
         </div>
 
+        {lastCapturedArea && !isTracking && (
+          <div className="mx-4 mb-4 rounded-xl border bg-card p-4 shadow-lg">
+            <div className="mb-3">
+              <p className="font-semibold">{lastCapturedArea.areaName}</p>
+              <p className="text-sm text-muted-foreground">
+                Covered {(lastCapturedArea.distanceMeters / 1000).toFixed(2)} km in {formatTime(lastCapturedArea.durationSeconds)}.
+              </p>
+            </div>
+            <Button variant="neon" className="w-full gap-2" onClick={() => setShareDialogOpen(true)}>
+              <Share2 className="h-4 w-4" />
+              Share recent workout
+            </Button>
+          </div>
+        )}
+
         {/* Control Buttons */}
         <div className="p-4 border-t border-border">
           {!isTracking ? (
@@ -290,6 +370,31 @@ export default function ActivityTracker() {
           )}
         </div>
       </div>
+
+      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+        <DialogContent className="max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Share your recent workout</DialogTitle>
+            <DialogDescription>
+              Your workout is complete. Share a screenshot with the area covered and the time it took.
+            </DialogDescription>
+          </DialogHeader>
+
+          {lastCapturedArea && (
+            <div className="rounded-xl border bg-card p-4">
+              <p className="font-semibold">{lastCapturedArea.areaName}</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {(lastCapturedArea.distanceMeters / 1000).toFixed(2)} km covered in {formatTime(lastCapturedArea.durationSeconds)}.
+              </p>
+            </div>
+          )}
+
+          <Button variant="neon" className="w-full gap-2" onClick={handleShareCapturedArea}>
+            <Share2 className="h-4 w-4" />
+            Share screenshot
+          </Button>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }
