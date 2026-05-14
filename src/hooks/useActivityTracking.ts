@@ -343,6 +343,7 @@ export function useActivityTracking() {
       calories: state.calories,
       loops: state.loops,
       xpEarned,
+      activityType: state.activityType,
       path: state.path,
       createdZone,
     };

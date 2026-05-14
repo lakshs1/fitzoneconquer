@@ -356,6 +356,31 @@ export default function ActivityTracker() {
           )}
         </div>
       </div>
+
+      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+        <DialogContent className="max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Share your recent workout</DialogTitle>
+            <DialogDescription>
+              Your workout is complete. Share a screenshot with the area covered and the time it took.
+            </DialogDescription>
+          </DialogHeader>
+
+          {lastCapturedArea && (
+            <div className="rounded-xl border bg-card p-4">
+              <p className="font-semibold">{lastCapturedArea.areaName}</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {(lastCapturedArea.distanceMeters / 1000).toFixed(2)} km covered in {formatTime(lastCapturedArea.durationSeconds)}.
+              </p>
+            </div>
+          )}
+
+          <Button variant="neon" className="w-full gap-2" onClick={handleShareCapturedArea}>
+            <Share2 className="h-4 w-4" />
+            Share screenshot
+          </Button>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }
