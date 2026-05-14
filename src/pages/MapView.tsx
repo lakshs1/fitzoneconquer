@@ -1,35 +1,22 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Navigation, Layers, ZoomIn, ZoomOut, MapPinned, Route } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Navigation, ZoomIn, ZoomOut, MapPinned, Clock, Footprints } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { GoogleMap } from '@/components/map/GoogleMap';
 import { useAuth } from '@/contexts/AuthContext';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { useZones } from '@/hooks/useUserData';
-import { rankNearbyPlaces, rankZonesByNearbyPlaces } from '@/lib/mapAlgorithms';
 
-function offsetPoint(origin: { lat: number; lng: number }, northMeters: number, eastMeters: number) {
-  const lat = origin.lat + northMeters / 111_320;
-  const lng =
-    origin.lng +
-    eastMeters / (111_320 * Math.max(0.2, Math.cos((origin.lat * Math.PI) / 180)));
-  return { lat, lng };
-}
-
-function squareAround(center: { lat: number; lng: number }, halfSizeMeters: number) {
-  return [
-    offsetPoint(center, halfSizeMeters, -halfSizeMeters),
-    offsetPoint(center, halfSizeMeters, halfSizeMeters),
-    offsetPoint(center, -halfSizeMeters, halfSizeMeters),
-    offsetPoint(center, -halfSizeMeters, -halfSizeMeters),
-  ];
-}
-
-interface RealPlace {
-  id: string;
-  name: string;
-  type: 'park' | 'ground';
-  location: { lat: number; lng: number };
+function formatDuration(seconds?: number | null) {
+  if (!seconds) return 'time not recorded';
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  if (mins >= 60) {
+    const hours = Math.floor(mins / 60);
+    const remainingMins = mins % 60;
+    return `${hours}h ${remainingMins}m`;
+  }
+  return `${mins}m ${secs}s`;
 }
 
 export default function MapView() {
@@ -37,152 +24,29 @@ export default function MapView() {
   const { zones: dbZones } = useZones();
   const { position } = useGeolocation();
 
-  const [showNearbyPlaces, setShowNearbyPlaces] = useState(true);
   const [zoom, setZoom] = useState(15);
   const [panResetKey, setPanResetKey] = useState(0);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>();
-  const [places, setPlaces] = useState<RealPlace[]>([]);
   const [activeZoneId, setActiveZoneId] = useState<string | null>(null);
 
-  const anchorPoint = useMemo(
-    () => position ?? mapCenter ?? { lat: 40.7128, lng: -74.006 },
-    [position, mapCenter]
-  );
-
-  // Fetch nearby parks/grounds
-  useEffect(() => {
-    const controller = new AbortController();
-
-    const query = `[out:json][timeout:25];
-      (
-        way["leisure"="park"](around:5000,${anchorPoint.lat},${anchorPoint.lng});
-        relation["leisure"="park"](around:5000,${anchorPoint.lat},${anchorPoint.lng});
-        node["leisure"="park"](around:5000,${anchorPoint.lat},${anchorPoint.lng});
-        way["leisure"="pitch"](around:5000,${anchorPoint.lat},${anchorPoint.lng});
-        relation["leisure"="pitch"](around:5000,${anchorPoint.lat},${anchorPoint.lng});
-        node["leisure"="pitch"](around:5000,${anchorPoint.lat},${anchorPoint.lng});
-        way["landuse"="recreation_ground"](around:5000,${anchorPoint.lat},${anchorPoint.lng});
-        relation["landuse"="recreation_ground"](around:5000,${anchorPoint.lat},${anchorPoint.lng});
-        node["landuse"="recreation_ground"](around:5000,${anchorPoint.lat},${anchorPoint.lng});
-      );
-      out center 50;`;
-
-    fetch('https://overpass-api.de/api/interpreter', {
-      method: 'POST',
-      body: query,
-      signal: controller.signal,
-    })
-      .then(async (res) => {
-        if (!res.ok) throw new Error('Places fetch failed');
-        const data = await res.json();
-
-        const output: RealPlace[] = (data.elements || [])
-          .map((el: any) => {
-            const lat = el.lat ?? el.center?.lat;
-            const lng = el.lon ?? el.center?.lon;
-            if (!lat || !lng) return null;
-
-            const tags = el.tags || {};
-            const isPark = tags.leisure === 'park';
-            const isGround =
-              tags.leisure === 'pitch' || tags.landuse === 'recreation_ground';
-
-            if (!isPark && !isGround) return null;
-
-            return {
-              id: `${el.type}-${el.id}`,
-              name:
-                tags.name ||
-                tags['name:en'] ||
-                (isPark ? 'Public Park' : 'Public Ground'),
-              type: isPark ? 'park' : 'ground',
-              location: { lat, lng },
-            };
-          })
-          .filter(Boolean)
-          .slice(0, 60);
-
-        setPlaces(output);
-      })
-      .catch(() => setPlaces([]));
-
-    return () => controller.abort();
-  }, [anchorPoint]);
-
-  // Fallback zones if DB empty
-  const fallbackVacantZones = useMemo(() => {
-    const anchor = anchorPoint;
-
-    return [
-      { id: 'vacant-n', name: 'North Open Block', north: 320, east: 120, size: 120, level: 1 },
-      { id: 'vacant-w', name: 'West Open Trail', north: 140, east: -420, size: 140, level: 2 },
-      { id: 'vacant-e', name: 'East Open Runway', north: -40, east: 520, size: 110, level: 3 },
-    ].map((z) => {
-      const center = offsetPoint(anchor, z.north, z.east);
-      return {
-        id: z.id,
-        name: z.name,
-        center,
-        coordinates: squareAround(center, z.size),
-        status: 'vacant' as const,
-        ownerName: null,
-        level: z.level,
-      };
-    });
-  }, [anchorPoint]);
-
   const zones = useMemo(() => {
-    const mapped = dbZones.map((z) => ({
+    return dbZones.map((z) => ({
       id: z.id,
       name: z.name,
       center: z.center as { lat: number; lng: number },
-      coordinates: z.coordinates || [],
-      status: !z.owner_id
-        ? 'vacant'
-        : z.owner_id === user?.id
-        ? 'mine'
-        : 'enemy',
+      coordinates: (z.coordinates || []) as Array<{ lat: number; lng: number }>,
+      status: z.owner_id === user?.id ? ('mine' as const) : ('enemy' as const),
       ownerName: z.owner_name,
       level: z.level || 1,
+      capturedAt: z.captured_at,
+      captureDurationSeconds: z.capture_duration_seconds,
+      captureDistanceMeters: z.capture_distance_meters,
     }));
+  }, [dbZones, user?.id]);
 
-    return mapped.length ? mapped : fallbackVacantZones;
-  }, [dbZones, user?.id, fallbackVacantZones]);
-
-  const recommendedPlaces = useMemo(() => {
-    return rankNearbyPlaces(anchorPoint, places, 8);
-  }, [anchorPoint, places]);
-
-  const recommendedZones = useMemo(() => {
-    if (!recommendedPlaces.length) return [];
-
-    return rankZonesByNearbyPlaces(
-      anchorPoint,
-      zones.map((zone) => ({
-        id: zone.id,
-        name: zone.name,
-        center: zone.center,
-      })),
-      recommendedPlaces,
-      3
-    );
-  }, [anchorPoint, zones, recommendedPlaces]);
-
-  const activeZone =
-    recommendedZones.find((z) => z.zoneId === activeZoneId) ??
-    recommendedZones[0] ??
-    null;
-
-  const directionsUrl = useMemo(() => {
-    if (!activeZone) return null;
-
-    const destination = recommendedPlaces.find(
-      (place) => place.id === activeZone.nearestPlaceId
-    );
-    if (!destination) return null;
-
-    return `https://www.google.com/maps/dir/?api=1&origin=${anchorPoint.lat},${anchorPoint.lng}&destination=${destination.location.lat},${destination.location.lng}&travelmode=walking`;
-  }, [anchorPoint, activeZone, recommendedPlaces]);
+  const activeZone = useMemo(() => {
+    return zones.find((zone) => zone.id === activeZoneId) ?? zones[0] ?? null;
+  }, [activeZoneId, zones]);
 
   return (
     <AppLayout wide>
@@ -195,8 +59,6 @@ export default function MapView() {
             panResetKey={panResetKey}
             userPosition={position}
             zones={zones}
-            nearbyPlaces={recommendedPlaces}
-            showNearbyPlaces={showNearbyPlaces}
             onZoneClick={setActiveZoneId}
           />
 
@@ -206,9 +68,6 @@ export default function MapView() {
             </Button>
             <Button size="icon" onClick={() => setZoom((z) => Math.max(3, z - 1))}>
               <ZoomOut />
-            </Button>
-            <Button size="icon" onClick={() => setShowNearbyPlaces((v) => !v)}>
-              <Layers />
             </Button>
           </div>
 
@@ -227,47 +86,50 @@ export default function MapView() {
         <aside className="rounded-2xl border bg-card p-4 shadow-xl">
           <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold">
             <MapPinned className="h-5 w-5 text-primary" />
-            Zone Recommendations
+            Captured Areas
           </h2>
 
-          {recommendedZones.length === 0 && (
+          {zones.length === 0 && (
             <p className="text-sm text-muted-foreground">
-              Detecting nearby public parks/grounds...
+              No captured areas yet. Start an activity and the app will mark the area you cover under your name for everyone to see.
             </p>
           )}
 
           <div className="space-y-2">
-            {recommendedZones.map((zone) => {
-              const isActive = zone.zoneId === activeZone?.zoneId;
+            {zones.map((zone) => {
+              const isActive = zone.id === activeZone?.id;
               return (
                 <button
-                  key={zone.zoneId}
+                  key={zone.id}
                   className={`w-full rounded-lg border px-3 py-2 text-left text-sm ${
                     isActive
                       ? 'border-primary bg-primary/10'
                       : 'border-border bg-background'
                   }`}
-                  onClick={() => setActiveZoneId(zone.zoneId)}
+                  onClick={() => setActiveZoneId(zone.id)}
                 >
-                  <div className="font-medium">{zone.zoneName}</div>
-                  <div className="text-xs text-muted-foreground">
-                    Near {zone.nearestPlaceName} ({zone.nearestPlaceType})
-                  </div>
+                  <div className="font-medium">{zone.ownerName || zone.name}</div>
+                  <div className="text-xs text-muted-foreground">{zone.name}</div>
                 </button>
               );
             })}
           </div>
 
-          {activeZone && directionsUrl && (
-            <a
-              href={directionsUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
-            >
-              <Route className="h-4 w-4" />
-              Get directions
-            </a>
+          {activeZone && (
+            <div className="mt-4 rounded-xl border bg-background p-3 text-sm">
+              <div className="font-semibold">{activeZone.ownerName || 'Captured user'}</div>
+              <div className="text-muted-foreground">{activeZone.name}</div>
+              <div className="mt-3 space-y-2 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-primary" />
+                  Completed in {formatDuration(activeZone.captureDurationSeconds)}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Footprints className="h-4 w-4 text-primary" />
+                  {((activeZone.captureDistanceMeters || 0) / 1000).toFixed(2)} km covered
+                </div>
+              </div>
+            </div>
           )}
         </aside>
       </div>
