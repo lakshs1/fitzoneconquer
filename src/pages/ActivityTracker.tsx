@@ -1,11 +1,13 @@
-import { useState, useEffect, useRef } from 'react';
-import { Play, Pause, Square, MapPin, Flame, Zap, Navigation, Crosshair } from 'lucide-react';
+import { useState } from 'react';
+import { Play, Pause, Square, MapPin, Flame, Zap, Navigation, Crosshair, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { useActivityTracking } from '@/hooks/useActivityTracking';
 import { GoogleMap } from '@/components/map/GoogleMap';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { createAreaShareImage } from '@/lib/shareAreaImage';
+import type { Coordinates } from '@/hooks/useGeolocation';
 
 export default function ActivityTracker() {
   const {
@@ -27,6 +29,13 @@ export default function ActivityTracker() {
 
   const [showMap, setShowMap] = useState(false);
   const [panResetKey, setPanResetKey] = useState(0);
+  const [lastCapturedArea, setLastCapturedArea] = useState<null | {
+    ownerName: string;
+    areaName: string;
+    durationSeconds: number;
+    distanceMeters: number;
+    path: Coordinates[];
+  }>(null);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -35,6 +44,7 @@ export default function ActivityTracker() {
   };
 
   const handleStart = async (type: 'run' | 'walk' | 'cycle') => {
+    setLastCapturedArea(null);
     const result = await startActivity(type);
     if (result.success) {
       toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} started! 🏃`);
@@ -59,9 +69,50 @@ export default function ActivityTracker() {
   const handleStop = async () => {
     const result = await stopActivity();
     if (result) {
+      if (result.createdZone) {
+        setLastCapturedArea({
+          ownerName: result.createdZone.owner_name || 'FitZone User',
+          areaName: result.createdZone.name,
+          durationSeconds: result.duration,
+          distanceMeters: result.distance,
+          path: result.path,
+        });
+      }
+
       toast.success(
-        `Great workout! 💪 ${(result.distance / 1000).toFixed(2)}km, ${result.loops} loops, +${result.xpEarned} XP!${result.createdZone ? ' Zone captured from your route.' : ''}`
+        `Great workout! 💪 ${(result.distance / 1000).toFixed(2)}km, ${result.loops} loops, +${result.xpEarned} XP!${result.createdZone ? ' Area captured under your name.' : ''}`
       );
+    }
+  };
+
+  const handleShareCapturedArea = async () => {
+    if (!lastCapturedArea) return;
+
+    try {
+      const file = await createAreaShareImage(lastCapturedArea);
+      const shareText = `${lastCapturedArea.ownerName} covered ${(lastCapturedArea.distanceMeters / 1000).toFixed(2)} km in ${formatTime(lastCapturedArea.durationSeconds)} on FitZone Conquer.`;
+
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({
+          title: 'FitZone captured area',
+          text: shareText,
+          files: [file],
+        });
+        toast.success('Captured area screenshot shared!');
+        return;
+      }
+
+      const url = URL.createObjectURL(file);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = file.name;
+      link.click();
+      URL.revokeObjectURL(url);
+      await navigator.clipboard?.writeText(shareText).catch(() => undefined);
+      toast.success('Screenshot downloaded. Share text copied when allowed.');
+    } catch (error) {
+      console.error('Failed to share captured area:', error);
+      toast.error('Could not create the captured area screenshot.');
     }
   };
 
@@ -229,6 +280,21 @@ export default function ActivityTracker() {
             </div>
           )}
         </div>
+
+        {lastCapturedArea && !isTracking && (
+          <div className="mx-4 mb-4 rounded-xl border bg-card p-4 shadow-lg">
+            <div className="mb-3">
+              <p className="font-semibold">{lastCapturedArea.areaName}</p>
+              <p className="text-sm text-muted-foreground">
+                Covered {(lastCapturedArea.distanceMeters / 1000).toFixed(2)} km in {formatTime(lastCapturedArea.durationSeconds)}.
+              </p>
+            </div>
+            <Button variant="neon" className="w-full gap-2" onClick={handleShareCapturedArea}>
+              <Share2 className="h-4 w-4" />
+              Share area screenshot
+            </Button>
+          </div>
+        )}
 
         {/* Control Buttons */}
         <div className="p-4 border-t border-border">

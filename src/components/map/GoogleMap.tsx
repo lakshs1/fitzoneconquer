@@ -22,6 +22,10 @@ interface GoogleMapProps {
     status: 'vacant' | 'mine' | 'enemy';
     ownerName?: string | null;
     level: number;
+    name?: string;
+    capturedAt?: string | null;
+    captureDurationSeconds?: number | null;
+    captureDistanceMeters?: number | null;
   }>;
   nearbyPlaces?: Array<{
     id: string;
@@ -239,8 +243,8 @@ export function GoogleMap({
             <polygon
               key={zone.id}
               points={polygon}
-              fill={zone.status === 'mine' ? 'rgba(250,204,21,0.3)' : 'rgba(239,68,68,0.3)'}
-              stroke={zone.status === 'mine' ? 'rgb(250,204,21)' : 'rgb(239,68,68)'}
+              fill={zone.status === 'mine' ? 'rgba(250,204,21,0.32)' : 'rgba(34,211,238,0.28)'}
+              stroke={zone.status === 'mine' ? 'rgb(250,204,21)' : 'rgb(34,211,238)'}
               strokeWidth={2.5}
               className="pointer-events-auto cursor-pointer"
               onClick={() => onZoneClick?.(zone.id)}
@@ -264,6 +268,23 @@ export function GoogleMap({
           />
         )}
       </svg>
+
+      {zones.map((zone) => {
+        const pos = toScreen(zone.center);
+        const label = zone.ownerName || zone.name || 'Captured area';
+
+        return (
+          <button
+            key={`${zone.id}-label`}
+            className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary/40 bg-card/90 px-3 py-1 text-xs font-semibold text-foreground shadow-lg backdrop-blur"
+            style={{ left: pos.x, top: pos.y }}
+            onClick={() => onZoneClick?.(zone.id)}
+            title={`${label} • ${zone.name || 'Captured area'}`}
+          >
+            {label}
+          </button>
+        );
+      })}
 
       {displayedPlaces.map((place) => {
         const pos = toScreen(place.location);
