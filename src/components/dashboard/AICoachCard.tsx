@@ -29,20 +29,20 @@ export function AICoachCard() {
   };
 
   return (
-    <section>
+    <section className="overflow-hidden">
       <h2 className="font-display text-lg font-semibold mb-3 flex items-center gap-2">
         <Sparkles className="w-5 h-5 text-accent" />
         AI Coach
       </h2>
-      <div className="stat-card bg-gradient-to-br from-accent/10 to-primary/10 border-accent/30">
+      <div className="rounded-xl border-2 border-accent/30 bg-card p-4 shadow-sm overflow-hidden">
         <div className="flex items-start gap-3">
           {/* Coach Avatar - Athletic figure instead of bot */}
           <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-accent to-primary flex items-center justify-center shrink-0">
             <Dumbbell className="w-6 h-6 text-accent-foreground" />
           </div>
-          <div className="flex-1">
+          <div className="min-w-0 flex-1">
             <p className="font-semibold text-accent mb-1">Coach's Tip</p>
-            <p className="text-sm text-foreground/80">{getTip()}</p>
+            <p className="break-words text-sm leading-relaxed text-foreground/80">{getTip()}</p>
           </div>
         </div>
         <Button 
@@ -50,7 +50,7 @@ export function AICoachCard() {
           className="w-full mt-3 justify-between hover:bg-accent/10"
           onClick={() => navigate('/coach')}
         >
-          <span>Chat with your coach</span>
+          <span className="min-w-0 truncate">Chat with your coach</span>
           <ChevronRight className="w-4 h-4" />
         </Button>
       </div>

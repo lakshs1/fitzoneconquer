@@ -279,16 +279,21 @@ export function useActivityTracking() {
     let createdZone = null;
 
     if (zoneDraft && startPositionRef.current) {
-      const zoneName = zoneDraft.closedLoop ? `Loop Zone ${new Date().toLocaleDateString()}` : `Route Zone ${new Date().toLocaleDateString()}`;
+      const ownerName = profile?.name || user.email || 'FitZone User';
+      const zoneName = `${ownerName}'s ${zoneDraft.closedLoop ? 'Loop Area' : 'Route Area'} ${new Date().toLocaleDateString()}`;
       const { data: zoneData, error: zoneError } = await supabase
         .from('zones')
         .insert({
           owner_id: user.id,
-          owner_name: profile?.name || user.email || 'You',
+          owner_name: ownerName,
           name: zoneName,
           coordinates: zoneDraft.coordinates,
           center: zoneDraft.center,
           level: 1,
+          activity_id: activity?.id ?? null,
+          capture_duration_seconds: state.duration,
+          capture_distance_meters: state.distance,
+          capture_path: pathData,
           captured_at: new Date().toISOString(),
         })
         .select()
@@ -298,6 +303,22 @@ export function useActivityTracking() {
         console.error('Failed to save zone:', zoneError);
       } else {
         createdZone = zoneData;
+
+        if (activity?.id) {
+          await supabase
+            .from('activities')
+            .update({ zone_created_id: zoneData.id })
+            .eq('id', activity.id);
+
+          await supabase.from('zone_captures').insert({
+            zone_id: zoneData.id,
+            challenger_id: user.id,
+            previous_owner_id: null,
+            activity_id: activity.id,
+            duration_minutes: Math.max(1, Math.ceil(state.duration / 60)),
+            successful: true,
+          });
+        }
       }
     }
 
@@ -308,6 +329,7 @@ export function useActivityTracking() {
         total_calories: (stats.total_calories || 0) + state.calories,
         total_activities: (stats.total_activities || 0) + 1,
         zones_owned: (stats.zones_owned || 0) + (createdZone ? 1 : 0),
+        zones_captured: (stats.zones_captured || 0) + (createdZone ? 1 : 0),
         xp: (stats.xp || 0) + xpEarned,
         level: Math.floor(((stats.xp || 0) + xpEarned) / 1000) + 1,
         last_activity_date: new Date().toISOString().split('T')[0],
@@ -321,6 +343,7 @@ export function useActivityTracking() {
       calories: state.calories,
       loops: state.loops,
       xpEarned,
+      activityType: state.activityType,
       path: state.path,
       createdZone,
     };
